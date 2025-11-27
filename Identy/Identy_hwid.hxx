@@ -3,18 +3,20 @@
 #ifndef UNC_IDENTY_HWID_H
 #define UNC_IDENTY_HWID_H
 
-#include "global.h"
+#include "Identy_global.h"
+#include "Identy_platform.hxx"
+#include "Identy_resource_handle.hxx"
 
 namespace identy
 {
 #ifdef IDENTY_WIN32
-using identy_byte = BYTE;
-using identy_dword = DWORD;
-using identy_word = WORD;
+using byte = BYTE;
+using dword = DWORD;
+using word = WORD;
 #else
-using identy_byte = unsigned char;
-using identy_dword = std::uint32_t;
-using identy_word = std::uint16_t;
+using byte = unsigned char;
+using dword = std::uint32_t;
+using word = std::uint16_t;
 #endif
 } // namespace identy
 
@@ -46,20 +48,24 @@ struct IDENTY_EXPORT Cpu
 #ifdef IDENTY_WIN32
 struct SMBIOS_Win32
 {
-    identy_byte used_20_calling_method;
-    identy_byte SMBIOS_major_version;
-    identy_byte SMBIOS_minor_version;
-    identy_byte dmi_revision;
-    identy_dword length;
-    identy_byte SMBIOS_table_data[1];
+    using Ptr = CStdHandle<SMBIOS_Win32>;
+
+    byte used_20_calling_method;
+    byte SMBIOS_major_version;
+    byte SMBIOS_minor_version;
+    byte dmi_revision;
+    dword length;
+    byte SMBIOS_table_data[1];
 };
 
 using SMBIOS = SMBIOS_Win32;
 #else
 struct SMBIOS_Linux
 {
-    identy_dword length;
-    identy_byte SMBIOS_table_data[1];
+    using Ptr = CStdHandle<SMBIOS_Linux>;
+
+    dword length;
+    byte SMBIOS_table_data[1];
 };
 
 using SMBIOS = SMBIOS_Linux;
@@ -67,15 +73,21 @@ using SMBIOS = SMBIOS_Linux;
 
 struct SMBIOS_Header
 {
-    identy_byte type;
-    identy_byte length;
-    identy_word handle;
+    byte type;
+    byte length;
+    word handle;
 };
 
 struct Motherboard
 {
     Cpu cpu;
 };
+} // namespace identy
+
+namespace identy
+{
+IDENTY_EXPORT SMBIOS::Ptr get_smbios();
+IDENTY_EXPORT std::vector<std::uint8_t> get_smbios_uuid();
 } // namespace identy
 
 namespace identy
