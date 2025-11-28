@@ -15,6 +15,7 @@ constexpr identy::register_32 cpuleaf_vendorID = 0x00000000;
 constexpr identy::register_32 cpuleaf_family = 0x00000001;
 constexpr identy::register_32 cpuleaf_ext_instructions = 0x00000007;
 constexpr identy::register_32 cpuleaf_ext_brand = 0x80000002;
+constexpr identy::register_32 cpuleaf_hypervisor = 0x40000000;
 } // namespace
 
 namespace
@@ -116,6 +117,8 @@ identy::Cpu get_cpu_info()
 
     std::memcpy(&cpu.version, &cpu_info[EAX], sizeof(identy::register_32));
 
+    cpu.hypervisor_bit = (cpu_info[ECX] << 31) & 1;
+
     identy::register_32 ebx_val;
     std::memcpy(&ebx_val, &cpu_info[EBX], sizeof(identy::register_32));
 
@@ -139,6 +142,21 @@ identy::Cpu get_cpu_info()
     __cpuid((identy::register_32*)(brand + 32), cpuleaf_ext_brand + 2);
 
     cpu.extended_brand_string = std::string(brand);
+
+    if(cpu.hypervisor_bit) {
+        char hyperv_sig[13] = { 0 };
+        __cpuid(cpu_info, cpuleaf_hypervisor);
+
+        identy::register_32 max_hypervisor_leaf = cpu_info[EAX];
+
+        if(max_hypervisor_leaf >= cpuleaf_hypervisor) {
+            std::memcpy(hyperv_sig + 0, &cpu_info[EBX], sizeof(identy::register_32));
+            std::memcpy(hyperv_sig + 4, &cpu_info[ECX], sizeof(identy::register_32));
+            std::memcpy(hyperv_sig + 8, &cpu_info[EDX], sizeof(identy::register_32));
+
+            cpu.hypervisor_signature = std::string(hyperv_sig);
+        }
+    }
 
     return cpu;
 }

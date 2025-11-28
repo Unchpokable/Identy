@@ -64,6 +64,9 @@ struct Cpu
     /** @brief Processor version information from CPUID EAX register (leaf 0x01) */
     identy::register_32 version;
 
+    /** @brief Hypervisor bit */
+    bool hypervisor_bit;
+
     /** @brief Brand index value indicating the processor brand string table index */
     std::uint8_t brand_index;
 
@@ -78,6 +81,9 @@ struct Cpu
 
     /** @brief Extended processor brand string (human-readable model name) */
     std::string extended_brand_string;
+
+    /** @brief Signature of current hypervisor (if present, empty string otherwise) */
+    std::string hypervisor_signature;
 
     /**
      * @brief Nested structure containing CPU instruction set capability flags
