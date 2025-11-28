@@ -52,6 +52,12 @@ using Hash256 = Hash<32>;
  * Provides 2^512 possible unique values for maximum collision resistance.
  */
 using Hash512 = Hash<64>;
+
+/**
+ * @brief Template concept requiring `buffer` field
+ */
+template<typename Hash>
+concept IdentyHashCompatible = requires(Hash hash) { hash.buffer; };
 } // namespace identy::hs
 
 namespace identy::hs::detail
@@ -316,6 +322,12 @@ template<IdentyHashExFn Hash = identy::hs::detail::DefaultHashEx>
 auto hash(const identy::MotherboardEx& mb) -> Hash::Type;
 } // namespace identy::hs
 
+namespace identy::hs
+{
+template<IdentyHashCompatible Hash>
+int compare(Hash&& lhs, Hash&& rhs);
+} // namespace identy::hs
+
 template<identy::hs::IdentyHashFn Hash>
 auto identy::hs::hash(const identy::Motherboard& mb) -> Hash::Type
 {
@@ -326,6 +338,12 @@ template<identy::hs::IdentyHashExFn Hash>
 auto identy::hs::hash(const identy::MotherboardEx& mb) -> Hash::Type
 {
     return Hash {}(mb);
+}
+
+template<identy::hs::IdentyHashCompatible Hash>
+int identy::hs::compare(Hash&& lhs, Hash&& rhs)
+{
+    return std::memcmp(lhs.buffer, rhs.buffer, sizeof(lhs.buffer));
 }
 
 #endif
