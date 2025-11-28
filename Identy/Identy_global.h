@@ -13,11 +13,7 @@
 #define IDENTY_EXPORT
 #endif
 #else
-#if defined(_WIN32) || defined(_WIN64)
-#define IDENTY_EXPORT __declspec(dllimport)
-#else
 #define IDENTY_EXPORT
-#endif
 #endif
 
 #endif

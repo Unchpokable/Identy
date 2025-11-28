@@ -24,10 +24,8 @@ struct CAlloc
 {
     T* operator()(std::size_t size)
     {
-        auto memory_ptr = malloc(size);
-        if(memory_ptr == nullptr) {
-            return memory_ptr;
-        }
+        auto memory_ptr = std::malloc(size);
+        // todo: throw if returned nullpointer
 
         return reinterpret_cast<T*>(memory_ptr);
     }
