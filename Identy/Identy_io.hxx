@@ -42,14 +42,14 @@ void identy::io::write_hash(std::ostream& stream, Hash&& hash)
         return; // todo: throw exception?
     }
 
-    auto curr_put = stream.tellp();
+    auto currp = stream.tellp();
 
     stream.seekp(std::ios::end);
     auto endp = stream.tellp();
 
-    auto space = endp - curr_put;
+    auto space = endp - currp;
 
-    stream.seekp(curr_put);
+    stream.seekp(currp);
 
     if(space < sizeof(hash.buffer)) {
         return; // todo: throw exception?
