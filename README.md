@@ -1,5 +1,7 @@
 # Identy
 
+![AI generated banner](./mics/Banner_aigen.png)
+
 > A modern C++20 hardware fingerprinting library for robust device identification
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
