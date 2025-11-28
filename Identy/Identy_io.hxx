@@ -25,7 +25,10 @@ void write_binary(std::ostream& stream, const identy::MotherboardEx& mb);
 
 namespace identy::io
 {
+template<identy::hs::IdentyHashFn Hash = identy::hs::detail::DefaultHash>
 void write_hash(std::ostream& stream, const identy::Motherboard& mb);
+
+template<identy::hs::IdentyHashExFn Hash = identy::hs::detail::DefaultHashEx>
 void write_hash(std::ostream& stream, const identy::MotherboardEx& mb);
 } // namespace identy::io
 
@@ -34,6 +37,20 @@ namespace identy::io
 template<identy::hs::IdentyHashCompatible Hash>
 void write_hash(std::ostream& stream, Hash&& hash);
 } // namespace identy::io
+
+template<identy::hs::IdentyHashFn Hash>
+void identy::io::write_hash(std::ostream& stream, const identy::Motherboard& mb)
+{
+    auto hash = Hash {}(mb);
+    write_hash(stream, hash);
+}
+
+template<identy::hs::IdentyHashExFn Hash>
+void identy::io::write_hash(std::ostream& stream, const identy::MotherboardEx& mb)
+{
+    auto hash = Hash {}(mb);
+    write_hash(stream, hash);
+}
 
 template<identy::hs::IdentyHashCompatible Hash>
 void identy::io::write_hash(std::ostream& stream, Hash&& hash)
