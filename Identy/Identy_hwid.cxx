@@ -285,6 +285,9 @@ identy::Motherboard identy::snap_motherboard() noexcept
     motherboard.smbios.raw_tables_data.resize(smbios_raw->length);
     std::memcpy(motherboard.smbios.raw_tables_data.data(), smbios_raw->SMBIOS_table_data, smbios_raw->length);
 
+    auto uuid = get_smbios_uuid_impl(smbios_raw);
+    std::memcpy(motherboard.smbios.uuid, uuid.data(), std::min(uuid.size(), sizeof(motherboard.smbios.uuid));
+
     return motherboard;
 }
 

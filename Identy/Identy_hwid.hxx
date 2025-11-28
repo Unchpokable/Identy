@@ -8,6 +8,7 @@
 #include "Identy_resource_handle.hxx"
 
 #ifdef IDENTY_WIN32
+#define NOMINMAX
 #include <Windows.h>
 #endif
 
