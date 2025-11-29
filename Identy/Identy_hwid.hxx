@@ -6,11 +6,7 @@
 #include "Identy_global.h"
 #include "Identy_platform.hxx"
 #include "Identy_resource_handle.hxx"
-
-#ifdef IDENTY_WIN32
-#define NOMINMAX
-#include <Windows.h>
-#endif
+#include "Identy_types.hxx"
 
 namespace identy
 {
@@ -21,25 +17,6 @@ namespace identy
  * used to uniquely identify the system.
  */
 constexpr std::size_t SMBIOS_uuid_length = 16;
-} // namespace identy
-
-namespace identy
-{
-#ifdef IDENTY_WIN32
-/** @brief Platform-specific byte type alias (Windows BYTE) */
-using byte = BYTE;
-/** @brief Platform-specific double word (32-bit) type alias (Windows DWORD) */
-using dword = DWORD;
-/** @brief Platform-specific word (16-bit) type alias (Windows WORD) */
-using word = WORD;
-#else
-/** @brief Platform-specific byte type alias (unsigned char) */
-using byte = unsigned char;
-/** @brief Platform-specific double word (32-bit) type alias */
-using dword = std::uint32_t;
-/** @brief Platform-specific word (16-bit) type alias */
-using word = std::uint16_t;
-#endif
 } // namespace identy
 
 namespace identy
@@ -75,7 +52,7 @@ struct Cpu
     std::uint8_t clflush_line_size;
 
     /** @brief Number of logical processors per physical package */
-    std::uint8_t logical_processors_count;
+    identy::register_32 logical_processors_count;
 
     /** @brief Advanced Programmable Interrupt Controller (APIC) ID */
     std::uint8_t apic_id;
@@ -103,6 +80,12 @@ struct Cpu
         /** @brief Extended modern instruction set features from CPUID leaf 0x07 (EBX, ECX, EDX registers) */
         register_32 extended_modern[3];
     } instruction_set;
+
+
+    /**
+     * @brief Flag indicates that processor is TOO OLD and some fields can be invalid
+     */
+    bool too_old { false };
 };
 
 #ifdef IDENTY_WIN32

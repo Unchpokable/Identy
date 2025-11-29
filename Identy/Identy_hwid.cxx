@@ -16,6 +16,8 @@ constexpr identy::register_32 cpuleaf_family = 0x00000001;
 constexpr identy::register_32 cpuleaf_ext_instructions = 0x00000007;
 constexpr identy::register_32 cpuleaf_ext_brand = 0x80000002;
 constexpr identy::register_32 cpuleaf_hypervisor = 0x40000000;
+constexpr identy::register_32 cpuleaf_extended_topology = 0x0000001F;
+constexpr identy::register_32 cpuleaf_extended_topology_legacy = 0x0000000B;
 } // namespace
 
 namespace
@@ -71,10 +73,10 @@ std::vector<std::uint8_t> get_smbios_uuid_impl(identy::SMBIOS_Raw::Ptr& smbios)
     identy::byte* smbios_end = smbios_begin + smbios->length;
 
     std::vector<std::uint8_t> buffer;
-    buffer.resize(static_cast<std::ptrdiff_t>(smbios_end - smbios_begin));
+    buffer.resize(smbios_end - smbios_begin);
 
     while(smbios_begin < smbios_end) {
-        identy::SMBIOS_Header* header = (identy::SMBIOS_Header*)smbios_begin;
+        identy::SMBIOS_Header* header = reinterpret_cast<identy::SMBIOS_Header*>(smbios_begin);
 
         if(header->type == SMBIOS_type_system_information && header->length >= SMBIOS_system_information_header_length) {
             identy::byte* uuid = smbios_begin + SMBIOS_uuid_offset;
@@ -113,11 +115,13 @@ identy::Cpu get_cpu_info()
 
     cpu.vendor = std::string(vendor);
 
+    identy::register_32 max_leaf = cpu_info[EAX];
+
     __cpuid(cpu_info, cpuleaf_family);
 
     std::memcpy(&cpu.version, &cpu_info[EAX], sizeof(identy::register_32));
 
-    cpu.hypervisor_bit = (cpu_info[ECX] << 31) & 1;
+    cpu.hypervisor_bit = (cpu_info[ECX] >> 31) & 1;
 
     identy::register_32 ebx_val;
     std::memcpy(&ebx_val, &cpu_info[EBX], sizeof(identy::register_32));
@@ -137,9 +141,9 @@ identy::Cpu get_cpu_info()
 
     char brand[49] = { 0 };
 
-    __cpuid((identy::register_32*)(brand + 0), cpuleaf_ext_brand + 0);
-    __cpuid((identy::register_32*)(brand + 16), cpuleaf_ext_brand + 1);
-    __cpuid((identy::register_32*)(brand + 32), cpuleaf_ext_brand + 2);
+    __cpuid(reinterpret_cast<identy::register_32*>(brand + 0), cpuleaf_ext_brand + 0);
+    __cpuid(reinterpret_cast<identy::register_32*>(brand + 16), cpuleaf_ext_brand + 1);
+    __cpuid(reinterpret_cast<identy::register_32*>(brand + 32), cpuleaf_ext_brand + 2);
 
     cpu.extended_brand_string = std::string(brand);
 
@@ -158,13 +162,56 @@ identy::Cpu get_cpu_info()
         }
     }
 
+    cpu.logical_processors_count = 1;
+
+    identy::register_32 leaf_to_use = 0;
+
+    if(max_leaf >= cpuleaf_extended_topology) {
+        leaf_to_use = cpuleaf_extended_topology;
+    }
+    else if(max_leaf >= cpuleaf_extended_topology_legacy) {
+        leaf_to_use = cpuleaf_extended_topology_legacy;
+    }
+
+    if(leaf_to_use != 0) {
+        identy::register_32 level = 0;
+
+        while(true) {
+            __cpuidex(cpu_info, leaf_to_use, level);
+
+            identy::byte level_type;
+            copy_byte(&cpu_info[ECX], &level_type, 1);
+
+            if(level_type == 0) {
+                break;
+            }
+
+            if(level_type == 2) {
+                identy::register_32 nb_proc_full;
+                std::memcpy(&nb_proc_full, &cpu_info[EBX], sizeof(identy::register_32));
+                cpu.logical_processors_count = nb_proc_full & 0xFFFF;
+            }
+
+            level++;
+        }
+    }
+    else if(max_leaf >= cpuleaf_family) {
+        __cpuid(cpu_info, cpuleaf_family);
+        identy::byte nb_proc;
+        copy_byte(&cpu_info[EBX], &nb_proc, 2);
+        cpu.logical_processors_count = static_cast<identy::register_32>(nb_proc);
+    }
+    else {
+        cpu.too_old = true;
+    }
+
     return cpu;
 }
 
 #ifdef IDENTY_WIN32
 std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_name)
 {
-    auto path = std::format("\\\\.\\{}", drive_name);
+    auto path = std::format(R"(\\.\{})", drive_name);
 
     HANDLE h_device = CreateFileA(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, NULL);
     if(h_device == INVALID_HANDLE_VALUE) {

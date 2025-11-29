@@ -4,60 +4,11 @@
 #define UNC_IDENTY_HASH_H
 
 #include "Identy_hwid.hxx"
+#include "Identy_hash_base.hxx"
 
 namespace identy::hs
 {
-/**
- * @brief Generic hash buffer template structure
- *
- * Fixed-size buffer for storing cryptographic hash values of arbitrary length.
- * This template provides a type-safe wrapper around raw byte arrays for hash
- * storage, ensuring compile-time size guarantees.
- *
- * @tparam BuffSize Size of the hash buffer in bytes
- *
- * @note This is a POD (Plain Old Data) type that can be safely copied and
- *       moved using memcpy operations
- *
- * @see Hash128, Hash256, Hash512
- */
-template<std::size_t BuffSize>
-struct Hash
-{
-    /** @brief Fixed-size byte array containing the hash value */
-    identy::byte buffer[BuffSize];
-};
 
-/**
- * @brief 128-bit (16-byte) hash type alias
- *
- * Commonly used for MD5 hashes or truncated SHA variants.
- * Provides 2^128 possible unique values.
- */
-using Hash128 = Hash<16>;
-
-/**
- * @brief 256-bit (32-byte) hash type alias
- *
- * Standard size for SHA-256 cryptographic hashes and similar algorithms.
- * Provides 2^256 possible unique values, offering strong collision resistance.
- * This is the default hash type used by the library.
- */
-using Hash256 = Hash<32>;
-
-/**
- * @brief 512-bit (64-byte) hash type alias
- *
- * Used for SHA-512 and other extended-length cryptographic hashes.
- * Provides 2^512 possible unique values for maximum collision resistance.
- */
-using Hash512 = Hash<64>;
-
-/**
- * @brief Template concept requiring `buffer` field
- */
-template<typename Hash>
-concept IdentyHashCompatible = requires(Hash hash) { hash.buffer; };
 } // namespace identy::hs
 
 namespace identy::hs::detail
@@ -149,7 +100,7 @@ struct DefaultHash final : public IHash<Hash256>
      * @param board Motherboard structure to hash
      * @return Hash256 containing the computed hash value
      */
-    Type operator()(const identy::Motherboard& board)
+    Type operator()(const identy::Motherboard& board) const
     {
         return default_hash(board);
     }
@@ -182,7 +133,7 @@ struct DefaultHashEx final : public IHash<Hash256>
      * @param board MotherboardEx structure to hash (drives must be pre-sorted)
      * @return Hash256 containing the computed hash value
      */
-    Type operator()(const identy::MotherboardEx& board)
+    Type operator()(const identy::MotherboardEx& board) const
     {
         return default_hash_ex(board);
     }

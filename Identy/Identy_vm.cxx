@@ -2,12 +2,12 @@
 
 #include "Identy_vm.hxx"
 
-bool identy::assume_virtual(identy::Motherboard& mb)
+identy::vm::HeuristicVerdict identy::vm::DefaultHeuristic::operator()(const identy::Motherboard& mb) const
 {
-    return false;
+    return {};
 }
 
-bool identy::assume_virtual(identy::MotherboardEx& mb)
+identy::vm::HeuristicVerdict identy::vm::DefaultHeuristicEx::operator()(const identy::MotherboardEx& mb) const
 {
-    return false;
+    return {};
 }
