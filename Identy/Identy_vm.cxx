@@ -8,6 +8,8 @@
 
 namespace
 {
+constexpr const char* microsoft_hyperv_sig = "Microsoft Hv";
+
 std::vector<std::string> known_hypervisor_signatures {
     "KVM",
     "KVMKVMKVM",
@@ -17,7 +19,7 @@ std::vector<std::string> known_hypervisor_signatures {
     "ACRNACRN",
     "bhyve bhyve",
     "Xen",
-    "Microsoft Hyper-V",
+    microsoft_hyperv_sig,
 };
 
 std::vector<std::string> known_vm_manufacturers {
@@ -125,7 +127,7 @@ std::string_view get_smbios_string(const identy::SMBIOS_Header* header, std::uin
     return { ptr };
 }
 
-void check_smbios(const identy::SMBIOS& smbios, identy::vm::HeuristicVerdict& verdict)
+std::string get_smbios_manufacturer(const identy::SMBIOS& smbios)
 {
     auto raw_smbios = smbios.raw_tables_data.data();
 
@@ -158,6 +160,38 @@ void check_smbios(const identy::SMBIOS& smbios, identy::vm::HeuristicVerdict& ve
         raw_smbios = next + 2;
     }
 
+    return std::string(manufacturer);
+}
+
+bool is_hvci(const identy::Cpu& cpu, const identy::SMBIOS& smbios)
+{
+    if(!cpu.hypervisor_bit) {
+        return false;
+    }
+
+    if(cpu.hypervisor_signature != microsoft_hyperv_sig) {
+        return false;
+    }
+
+    auto manufacturer = get_smbios_manufacturer(smbios);
+
+    auto is_known_manufacturer = std::ranges::any_of(known_vm_manufacturers, [manufacturer](const std::string& man) {
+        return manufacturer.find(man) != std::string_view::npos;
+    });
+
+    if(is_known_manufacturer) {
+        return false;
+    }
+
+    // todo: check UUID
+
+    return true;
+}
+
+void check_smbios(const identy::SMBIOS& smbios, identy::vm::HeuristicVerdict& verdict)
+{
+    auto manufacturer = get_smbios_manufacturer(smbios);
+
     auto is_known_manufacturer = std::ranges::any_of(known_vm_manufacturers, [manufacturer](const std::string& man) {
         return manufacturer.find(man) != std::string_view::npos;
     });
@@ -184,18 +218,22 @@ identy::vm::HeuristicVerdict check_mb_common(const MB& mb)
 {
     identy::vm::HeuristicVerdict verdict;
 
-    if(mb.cpu.hypervisor_bit) {
-        verdict.detections.push_back(identy::vm::VMFlags::Cpu_Hypervisor_bit);
+    if(is_hvci(mb.cpu, mb.smbios)) {
+        verdict.detections.push_back(identy::vm::VMFlags::Platform_HyperVIsolation);
     }
+    else {
+        if(mb.cpu.hypervisor_bit) {
+            verdict.detections.push_back(identy::vm::VMFlags::Cpu_Hypervisor_bit);
+        }
 
-    if(std::ranges::any_of(known_hypervisor_signatures, [mb](const std::string& sig) {
-           return mb.cpu.hypervisor_signature.find(sig) != std::string::npos;
-       })) {
-        verdict.detections.push_back(identy::vm::VMFlags::Cpu_Hypervisor_signature);
+        if(std::ranges::any_of(known_hypervisor_signatures, [&mb](const std::string& sig) {
+               return mb.cpu.hypervisor_signature.find(sig) != std::string::npos;
+           })) {
+            verdict.detections.push_back(identy::vm::VMFlags::Cpu_Hypervisor_signature);
+        }
     }
 
     check_smbios(mb.smbios, verdict);
-
     check_network_adapters(verdict);
 
     return verdict;
