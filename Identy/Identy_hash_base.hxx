@@ -3,6 +3,8 @@
 #ifndef UNC_IDENTY_HASH_BASE_H
 #define UNC_IDENTY_HASH_BASE_H
 
+#include "Identy_types.hxx"
+
 namespace identy::hs
 {
 /**
@@ -22,6 +24,8 @@ namespace identy::hs
 template<std::size_t BuffSize>
 struct Hash
 {
+    static_assert(BuffSize % 2 == 0, "Buffer size should be a power of 2!");
+
     /** @brief Fixed-size byte array containing the hash value */
     identy::byte buffer[BuffSize];
 };

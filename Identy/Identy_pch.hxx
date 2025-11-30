@@ -14,6 +14,8 @@
 #include <vector>
 #include <type_traits>
 #include <concepts>
+#include <span>
+#include <cassert>
 
 #include <intrin.h>
 
