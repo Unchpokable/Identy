@@ -52,7 +52,7 @@ identy::SMBIOS_Raw::Ptr get_smbios_win32()
 
     GetSystemFirmwareTable('RSMB', 0, smbios_ptr, static_cast<identy::dword>(smbios_ptr.bytes_length()));
 
-    return std::move(smbios_ptr);
+    return smbios_ptr;
 }
 
 #define get_smbios_impl get_smbios_win32
@@ -67,7 +67,7 @@ identy::SMBIOS get_smbios_linux()
 #define get_smbios_impl get_smbios_linux
 #endif
 
-std::vector<std::uint8_t> get_smbios_uuid_impl(identy::SMBIOS_Raw::Ptr& smbios)
+std::vector<std::uint8_t> get_smbios_uuid(identy::SMBIOS_Raw::Ptr& smbios)
 {
     identy::byte* smbios_begin = smbios->SMBIOS_table_data;
     identy::byte* smbios_end = smbios_begin + smbios->length;
@@ -76,7 +76,7 @@ std::vector<std::uint8_t> get_smbios_uuid_impl(identy::SMBIOS_Raw::Ptr& smbios)
     buffer.resize(smbios_end - smbios_begin);
 
     while(smbios_begin < smbios_end) {
-        identy::SMBIOS_Header* header = reinterpret_cast<identy::SMBIOS_Header*>(smbios_begin);
+        auto header = reinterpret_cast<identy::SMBIOS_Header*>(smbios_begin);
 
         if(header->type == SMBIOS_type_system_information && header->length >= SMBIOS_system_information_header_length) {
             identy::byte* uuid = smbios_begin + SMBIOS_uuid_offset;
@@ -89,8 +89,13 @@ std::vector<std::uint8_t> get_smbios_uuid_impl(identy::SMBIOS_Raw::Ptr& smbios)
         }
 
         identy::byte* next = smbios_begin + header->length;
-        while(next < smbios_end && (*next != 0 || *(next + 1) != 0)) {
+
+        while(next + 1 < smbios_end && (*next != 0 || *(next + 1) != 0)) {
             next++;
+        }
+
+        if(next + 2 > smbios_end) {
+            break;
         }
 
         smbios_begin = next + 2;
@@ -234,7 +239,7 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
         return std::nullopt;
     }
 
-    STORAGE_DEVICE_DESCRIPTOR* desc = (STORAGE_DEVICE_DESCRIPTOR*)buffer;
+    STORAGE_DEVICE_DESCRIPTOR* desc = reinterpret_cast<STORAGE_DEVICE_DESCRIPTOR*>(buffer);
 
     switch(desc->BusType) {
         case BusTypeNvme:
@@ -279,13 +284,15 @@ std::vector<identy::PhysicalDriveInfo> list_drives_win32()
     while(*current_info) {
         std::string_view device_name(current_info);
 
-        if(device_name.find("PhysicalDrive") == 0) {
+        if(device_name.starts_with("PhysicalDrive")) {
             drives.emplace_back(device_name);
         }
+
+        current_info += device_name.size() + 1;
     }
 
     std::vector<identy::PhysicalDriveInfo> drive_infos;
-    for(auto drive_name : drives) {
+    for(auto& drive_name : drives) {
         auto result = get_drive_info(drive_name);
         if(result.has_value()) {
             drive_infos.push_back(std::move(result.value()));
@@ -322,17 +329,19 @@ identy::Motherboard identy::snap_motherboard() noexcept
     motherboard.smbios.is_20_calling_used = smbios_raw->used_20_calling_method == 1;
     motherboard.smbios.major_version = smbios_raw->SMBIOS_major_version;
     motherboard.smbios.minor_version = smbios_raw->SMBIOS_minor_version;
+    motherboard.smbios.dmi_version = smbios_raw->dmi_revision;
 #else
     // todo: get from Linux system APIs
     motherboard.smbios.is_20_calling_used = false;
     motherboard.smbios.major_version = 255;
     motherboard.smbios.minor_version = 255;
+    motherboard.smbios.dmi_version = 255;
 #endif
 
     motherboard.smbios.raw_tables_data.resize(smbios_raw->length);
     std::memcpy(motherboard.smbios.raw_tables_data.data(), smbios_raw->SMBIOS_table_data, smbios_raw->length);
 
-    auto uuid = get_smbios_uuid_impl(smbios_raw);
+    auto uuid = get_smbios_uuid(smbios_raw);
     std::memcpy(motherboard.smbios.uuid, uuid.data(), std::min(uuid.size(), sizeof(motherboard.smbios.uuid)));
 
     return motherboard;
@@ -347,7 +356,7 @@ identy::MotherboardEx identy::snap_motherboard_ex() noexcept
     motherboard.cpu = short_mb.cpu;
     motherboard.smbios = short_mb.smbios;
 
-    motherboard.drives = std::move(list_drives());
+    motherboard.drives = list_drives();
 
     return motherboard;
 }

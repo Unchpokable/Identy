@@ -81,7 +81,6 @@ struct Cpu
         register_32 extended_modern[3];
     } instruction_set;
 
-
     /**
      * @brief Flag indicates that processor is TOO OLD and some fields can be invalid
      */
@@ -175,6 +174,7 @@ using SMBIOS_Raw = SMBIOS_Linux;
  *
  * @see SMBIOS specification for complete structure definitions
  */
+#pragma pack(push, 1)
 struct SMBIOS_Header
 {
     /** @brief SMBIOS structure type identifier (e.g., 0=BIOS, 1=System, 2=Baseboard) */
@@ -186,6 +186,7 @@ struct SMBIOS_Header
     /** @brief Unique handle number for this structure instance */
     word handle;
 };
+#pragma pack(pop)
 
 /**
  * @brief Managed SMBIOS data structure using modern C++ containers
