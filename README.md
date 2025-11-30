@@ -42,7 +42,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/identy.git
+git clone https://github.com/Unchpokable/Identy.git
 cd identy
 
 # Build with CMake
