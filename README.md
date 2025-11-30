@@ -1,6 +1,6 @@
 # Identy
 
-![AI generated banner](./mics/Banner_aigen.png)
+![AI generated banner](./misc/Banner_aigen.png)
 
 > A modern C++20 hardware fingerprinting library for robust device identification
 
@@ -52,19 +52,11 @@ cmake --build build --config Release
 
 ### Integration
 
-#### Option 1: CMake Subdirectory
+#### CMake Subdirectory
 
 ```cmake
 add_subdirectory(identy)
 target_link_libraries(your_target PRIVATE Identy)
-```
-
-#### Option 2: Header-Only Usage
-
-Simply include the main header:
-
-```cpp
-#include <Identy/Identy.h>
 ```
 
 ## Usage Examples
