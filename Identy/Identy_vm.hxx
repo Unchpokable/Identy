@@ -19,11 +19,29 @@ enum class VMFlags {
     Platform_VirtualNetworkAdaptersPresent, ///< Detected virtual network adapter
     Platform_OnlyVirtualNetworkAdapters,    ///< All network adapters is virtual
     Platform_AccessToNetworkDevicesDenied,  ///< Operating system denied access to network adapters
+    Platform_HyperVIsolation,               ///< Hardware Windows running with "Core Integrity" settings
 };
 
 enum class VMConfidence {
-    // todo: ???
+    Unlikely,
+    Possible,
+    Probable,
+    DefinitelyVM,
 };
+
+namespace detail
+{
+enum class FlagStrength {
+    Weak,
+    Medium,
+    Strong,
+    Critical,
+};
+
+constexpr FlagStrength get_flag_strength(VMFlags flag);
+VMConfidence calculate_confidence(const std::vector<VMFlags>& detections);
+
+} // namespace detail
 
 /// Result of Heuristic analysis of hardware info.
 /// detections field contains all flags that heuristic marked as detected
@@ -31,6 +49,11 @@ struct HeuristicVerdict
 {
     std::vector<VMFlags> detections;
     VMConfidence confidence;
+
+    bool is_virtual() const
+    {
+        return confidence >= VMConfidence::Probable;
+    }
 };
 
 struct DefaultHeuristic
@@ -61,22 +84,36 @@ bool assume_virtual(const identy::Motherboard& mb);
 /// Returns a flag is Identy thinks is given motherboard is virtual
 template<HeuristicEx Heuristic = DefaultHeuristicEx>
 bool assume_virtual(const identy::MotherboardEx& mb);
+
+template<Heuristic Heuristic = DefaultHeuristic>
+identy::vm::HeuristicVerdict analyze_full(const identy::Motherboard& mb);
+
+template<HeuristicEx Heuristic = DefaultHeuristicEx>
+identy::vm::HeuristicVerdict analyze_full(const identy::MotherboardEx& mb);
 } // namespace identy::vm
 
 template<identy::vm::Heuristic Heuristic>
 bool identy::vm::assume_virtual(const identy::Motherboard& mb)
 {
-    auto verdict = Heuristic {}(mb);
-
-    return false;
+    return Heuristic {}(mb).is_virtual();
 }
 
 template<identy::vm::HeuristicEx Heuristic>
 bool identy::vm::assume_virtual(const identy::MotherboardEx& mb)
 {
-    auto verdict = Heuristic {}(mb);
+    return Heuristic {}(mb).is_virtual();
+}
 
-    return false;
+template<identy::vm::Heuristic Heuristic>
+identy::vm::HeuristicVerdict identy::vm::analyze_full(const identy::Motherboard& mb)
+{
+    return Heuristic {}(mb);
+}
+
+template<identy::vm::HeuristicEx Heuristic>
+identy::vm::HeuristicVerdict identy::vm::analyze_full(const identy::MotherboardEx& mb)
+{
+    return Heuristic {}(mb);
 }
 
 #endif

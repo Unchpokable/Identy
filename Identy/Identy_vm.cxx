@@ -202,6 +202,77 @@ identy::vm::HeuristicVerdict check_mb_common(const MB& mb)
 }
 } // namespace
 
+constexpr identy::vm::detail::FlagStrength identy::vm::detail::get_flag_strength(VMFlags flag)
+{
+    switch(flag) {
+        case VMFlags::Platform_HyperVIsolation:
+        case VMFlags::Platform_VirtualNetworkAdaptersPresent:
+        case VMFlags::SMBIOS_SuspiciousManufacturer:
+            return FlagStrength::Weak;
+
+        case VMFlags::SMBIOS_SuspiciousUUID:
+        case VMFlags::Platform_OnlyVirtualNetworkAdapters:
+            return FlagStrength::Medium;
+
+        case VMFlags::Cpu_Hypervisor_bit:
+        case VMFlags::Cpu_Hypervisor_signature:
+            return FlagStrength::Strong;
+
+        case VMFlags::SMBIOS_UUIDTotallyZeroed:
+            return FlagStrength::Critical;
+
+        case VMFlags::Storage_SuspiciousSerial:
+        case VMFlags::Platform_WindowsRegistry:
+        case VMFlags::Platform_LinuxDevices:
+        case VMFlags::Platform_AccessToNetworkDevicesDenied:
+            return FlagStrength::Medium;
+
+        default:
+            return FlagStrength::Weak;
+    }
+}
+
+identy::vm::VMConfidence identy::vm::detail::calculate_confidence(const std::vector<VMFlags>& detections)
+{
+    int weak = 0, medium = 0, strong = 0;
+    bool critical = false;
+
+    for(auto flag : detections) {
+        switch(detail::get_flag_strength(flag)) {
+            case FlagStrength::Weak:
+                ++weak;
+                break;
+            case FlagStrength::Medium:
+                ++medium;
+                break;
+            case FlagStrength::Strong:
+                ++strong;
+                break;
+            case FlagStrength::Critical:
+                critical = true;
+                break;
+        }
+    }
+
+    if(critical) {
+        return VMConfidence::DefinitelyVM;
+    }
+
+    if(strong >= 2) {
+        return VMConfidence::DefinitelyVM;
+    }
+
+    if(strong >= 1 || medium >= 3) {
+        return VMConfidence::Probable;
+    }
+
+    if(medium >= 1 || weak >= 2) {
+        return VMConfidence::Possible;
+    }
+
+    return VMConfidence::Unlikely;
+}
+
 identy::vm::HeuristicVerdict identy::vm::DefaultHeuristic::operator()(const identy::Motherboard& mb) const
 {
     return check_mb_common(mb);
