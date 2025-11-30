@@ -75,7 +75,7 @@ void write_binary_common(std::ostream& stream, MB&& mb)
 }
 }; // namespace
 
-void identy::io::write_text(std::ostream& stream, const identy::Motherboard& mb)
+void identy::io::write_text(std::ostream& stream, const Motherboard& mb)
 {
     if(!stream.good()) {
         return; // todo: throw error
@@ -84,7 +84,7 @@ void identy::io::write_text(std::ostream& stream, const identy::Motherboard& mb)
     write_text_common(stream, mb);
 }
 
-void identy::io::write_text(std::ostream& stream, const identy::MotherboardEx& mb)
+void identy::io::write_text(std::ostream& stream, const MotherboardEx& mb)
 {
     if(!stream.good()) {
         return;
@@ -107,13 +107,13 @@ void identy::io::write_text(std::ostream& stream, const identy::MotherboardEx& m
         stream << "  Bus Type: ";
 
         switch(drive.bus_type) {
-            case identy::PhysicalDriveInfo::SATA:
+            case PhysicalDriveInfo::SATA:
                 stream << "SATA\n";
                 break;
-            case identy::PhysicalDriveInfo::NMVe:
+            case PhysicalDriveInfo::NMVe:
                 stream << "NVMe\n";
                 break;
-            case identy::PhysicalDriveInfo::USB:
+            case PhysicalDriveInfo::USB:
                 stream << "USB\n";
                 break;
             default:
@@ -123,12 +123,12 @@ void identy::io::write_text(std::ostream& stream, const identy::MotherboardEx& m
     }
 }
 
-void identy::io::write_binary(std::ostream& stream, const identy::Motherboard& mb)
+void identy::io::write_binary(std::ostream& stream, const Motherboard& mb)
 {
     write_binary_common(stream, mb);
 }
 
-void identy::io::write_binary(std::ostream& stream, const identy::MotherboardEx& mb)
+void identy::io::write_binary(std::ostream& stream, const MotherboardEx& mb)
 {
     if(!stream.good()) {
         return;

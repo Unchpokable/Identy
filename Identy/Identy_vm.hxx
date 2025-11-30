@@ -40,7 +40,6 @@ enum class FlagStrength {
 
 constexpr FlagStrength get_flag_strength(VMFlags flag);
 VMConfidence calculate_confidence(const std::vector<VMFlags>& detections);
-
 } // namespace detail
 
 /// Result of Heuristic analysis of hardware info.
@@ -58,20 +57,20 @@ struct HeuristicVerdict
 
 struct DefaultHeuristic
 {
-    HeuristicVerdict operator()(const identy::Motherboard& mb) const;
+    HeuristicVerdict operator()(const Motherboard& mb) const;
 };
 
 struct DefaultHeuristicEx
 {
-    HeuristicVerdict operator()(const identy::MotherboardEx& mb) const;
+    HeuristicVerdict operator()(const MotherboardEx& mb) const;
 };
 
 template<typename T>
-concept Heuristic = std::is_invocable_r_v<HeuristicVerdict, T, const identy::Motherboard&> && std::is_trivially_constructible_v<T>
+concept Heuristic = std::is_invocable_r_v<HeuristicVerdict, T, const Motherboard&> && std::is_trivially_constructible_v<T>
     && std::is_trivially_destructible_v<T>;
 
 template<typename T>
-concept HeuristicEx = std::is_invocable_r_v<HeuristicVerdict, T, const identy::MotherboardEx&> && std::is_trivially_constructible_v<T>
+concept HeuristicEx = std::is_invocable_r_v<HeuristicVerdict, T, const MotherboardEx&> && std::is_trivially_constructible_v<T>
     && std::is_trivially_destructible_v<T>;
 } // namespace identy::vm
 
@@ -79,39 +78,39 @@ namespace identy::vm
 {
 /// Returns a flag is Identy thinks is given motherboard is virtual
 template<Heuristic Heuristic = DefaultHeuristic>
-bool assume_virtual(const identy::Motherboard& mb);
+bool assume_virtual(const Motherboard& mb);
 
 /// Returns a flag is Identy thinks is given motherboard is virtual
 template<HeuristicEx Heuristic = DefaultHeuristicEx>
-bool assume_virtual(const identy::MotherboardEx& mb);
+bool assume_virtual(const MotherboardEx& mb);
 
 template<Heuristic Heuristic = DefaultHeuristic>
-identy::vm::HeuristicVerdict analyze_full(const identy::Motherboard& mb);
+HeuristicVerdict analyze_full(const Motherboard& mb);
 
 template<HeuristicEx Heuristic = DefaultHeuristicEx>
-identy::vm::HeuristicVerdict analyze_full(const identy::MotherboardEx& mb);
+HeuristicVerdict analyze_full(const MotherboardEx& mb);
 } // namespace identy::vm
 
 template<identy::vm::Heuristic Heuristic>
-bool identy::vm::assume_virtual(const identy::Motherboard& mb)
+bool identy::vm::assume_virtual(const Motherboard& mb)
 {
     return Heuristic {}(mb).is_virtual();
 }
 
 template<identy::vm::HeuristicEx Heuristic>
-bool identy::vm::assume_virtual(const identy::MotherboardEx& mb)
+bool identy::vm::assume_virtual(const MotherboardEx& mb)
 {
     return Heuristic {}(mb).is_virtual();
 }
 
 template<identy::vm::Heuristic Heuristic>
-identy::vm::HeuristicVerdict identy::vm::analyze_full(const identy::Motherboard& mb)
+identy::vm::HeuristicVerdict identy::vm::analyze_full(const Motherboard& mb)
 {
     return Heuristic {}(mb);
 }
 
 template<identy::vm::HeuristicEx Heuristic>
-identy::vm::HeuristicVerdict identy::vm::analyze_full(const identy::MotherboardEx& mb)
+identy::vm::HeuristicVerdict identy::vm::analyze_full(const MotherboardEx& mb)
 {
     return Heuristic {}(mb);
 }

@@ -27,4 +27,4 @@ using word = std::uint16_t;
 #endif
 } // namespace identy
 
-#endif 
+#endif

@@ -15,12 +15,12 @@ public:
     static constexpr std::size_t block_size = 64;
     static constexpr std::size_t digest_size = 32;
 
-    static Hash256 hash(std::span<const identy::byte> data) noexcept;
+    static Hash256 hash(std::span<const byte> data) noexcept;
 
     Sha256() noexcept;
 
-    void update(std::span<const identy::byte> data) noexcept;
-    void update(const identy::byte* data, std::size_t len) noexcept;
+    void update(std::span<const byte> data) noexcept;
+    void update(const byte* data, std::size_t len) noexcept;
 
     [[nodiscard]] Hash256 finalize() noexcept;
 
@@ -39,12 +39,12 @@ private:
         0x5be0cd19 };
 
     std::uint32_t m_state[8];
-    identy::byte m_block[block_size];
+    byte m_block[block_size];
     std::size_t m_block_len;
     std::uint64_t m_total_len;
     bool m_finalized;
 
-    void transform(const identy::byte* block) noexcept;
+    void transform(const byte* block) noexcept;
 
     static constexpr std::uint32_t rotr(std::uint32_t x, std::uint32_t n) noexcept
     {
@@ -81,6 +81,6 @@ private:
         return rotr(x, 17) ^ rotr(x, 19) ^ (x >> 10);
     }
 };
-}
+} // namespace identy::hs::detail
 
 #endif

@@ -13,40 +13,40 @@ struct MotherboardEx;
 
 namespace identy::io
 {
-void write_text(std::ostream& stream, const identy::Motherboard& mb);
-void write_text(std::ostream& stream, const identy::MotherboardEx& mb);
+void write_text(std::ostream& stream, const Motherboard& mb);
+void write_text(std::ostream& stream, const MotherboardEx& mb);
 } // namespace identy::io
 
 namespace identy::io
 {
-void write_binary(std::ostream& stream, const identy::Motherboard& mb);
-void write_binary(std::ostream& stream, const identy::MotherboardEx& mb);
+void write_binary(std::ostream& stream, const Motherboard& mb);
+void write_binary(std::ostream& stream, const MotherboardEx& mb);
 } // namespace identy::io
 
 namespace identy::io
 {
-template<identy::hs::IdentyHashFn Hash = identy::hs::detail::DefaultHash>
-void write_hash(std::ostream& stream, const identy::Motherboard& mb);
+template<hs::IdentyHashFn Hash = hs::detail::DefaultHash>
+void write_hash(std::ostream& stream, const Motherboard& mb);
 
-template<identy::hs::IdentyHashExFn Hash = identy::hs::detail::DefaultHashEx>
-void write_hash(std::ostream& stream, const identy::MotherboardEx& mb);
+template<hs::IdentyHashExFn Hash = hs::detail::DefaultHashEx>
+void write_hash(std::ostream& stream, const MotherboardEx& mb);
 } // namespace identy::io
 
 namespace identy::io
 {
-template<identy::hs::IdentyHashCompatible Hash>
+template<hs::IdentyHashCompatible Hash>
 void write_hash(std::ostream& stream, Hash&& hash);
 } // namespace identy::io
 
 template<identy::hs::IdentyHashFn Hash>
-void identy::io::write_hash(std::ostream& stream, const identy::Motherboard& mb)
+void identy::io::write_hash(std::ostream& stream, const Motherboard& mb)
 {
     auto hash = Hash {}(mb);
     write_hash(stream, hash);
 }
 
 template<identy::hs::IdentyHashExFn Hash>
-void identy::io::write_hash(std::ostream& stream, const identy::MotherboardEx& mb)
+void identy::io::write_hash(std::ostream& stream, const MotherboardEx& mb)
 {
     auto hash = Hash {}(mb);
     write_hash(stream, hash);

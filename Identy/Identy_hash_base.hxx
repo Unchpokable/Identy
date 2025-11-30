@@ -27,7 +27,7 @@ struct Hash
     static_assert(BuffSize % 2 == 0, "Buffer size should be a power of 2!");
 
     /** @brief Fixed-size byte array containing the hash value */
-    identy::byte buffer[BuffSize];
+    byte buffer[BuffSize];
 };
 
 /**
@@ -60,6 +60,6 @@ using Hash512 = Hash<64>;
  */
 template<typename Hash>
 concept IdentyHashCompatible = requires(Hash hash) { hash.buffer; };
-}
+} // namespace identy::hs
 
 #endif

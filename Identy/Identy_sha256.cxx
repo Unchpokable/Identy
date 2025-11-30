@@ -2,7 +2,7 @@
 
 #include "Identy_sha256.hxx"
 
-identy::hs::Hash256 identy::hs::detail::Sha256::hash(std::span<const identy::byte> data) noexcept
+identy::hs::Hash256 identy::hs::detail::Sha256::hash(std::span<const byte> data) noexcept
 {
     Sha256 ctx;
     ctx.update(data);
@@ -22,12 +22,12 @@ void identy::hs::detail::Sha256::reset() noexcept
     m_finalized = false;
 }
 
-void identy::hs::detail::Sha256::update(std::span<const identy::byte> data) noexcept
+void identy::hs::detail::Sha256::update(std::span<const byte> data) noexcept
 {
     update(data.data(), data.size());
 }
 
-void identy::hs::detail::Sha256::update(const identy::byte* data, std::size_t len) noexcept
+void identy::hs::detail::Sha256::update(const byte* data, std::size_t len) noexcept
 {
     assert(!m_finalized && "Cannot update after finalize()");
 
@@ -91,30 +91,30 @@ identy::hs::Hash256 identy::hs::detail::Sha256::finalize() noexcept
     std::memset(m_block + m_block_len, 0, 56 - m_block_len);
 
     // Append length in big-endian (last 8 bytes)
-    m_block[56] = static_cast<identy::byte>(bit_len >> 56);
-    m_block[57] = static_cast<identy::byte>(bit_len >> 48);
-    m_block[58] = static_cast<identy::byte>(bit_len >> 40);
-    m_block[59] = static_cast<identy::byte>(bit_len >> 32);
-    m_block[60] = static_cast<identy::byte>(bit_len >> 24);
-    m_block[61] = static_cast<identy::byte>(bit_len >> 16);
-    m_block[62] = static_cast<identy::byte>(bit_len >> 8);
-    m_block[63] = static_cast<identy::byte>(bit_len);
+    m_block[56] = static_cast<byte>(bit_len >> 56);
+    m_block[57] = static_cast<byte>(bit_len >> 48);
+    m_block[58] = static_cast<byte>(bit_len >> 40);
+    m_block[59] = static_cast<byte>(bit_len >> 32);
+    m_block[60] = static_cast<byte>(bit_len >> 24);
+    m_block[61] = static_cast<byte>(bit_len >> 16);
+    m_block[62] = static_cast<byte>(bit_len >> 8);
+    m_block[63] = static_cast<byte>(bit_len);
 
     transform(m_block);
 
     // Convert state to big-endian output
     for(std::size_t i = 0; i < 8; ++i) {
         std::uint32_t val = m_state[i];
-        result.buffer[i * 4 + 0] = static_cast<identy::byte>(val >> 24);
-        result.buffer[i * 4 + 1] = static_cast<identy::byte>(val >> 16);
-        result.buffer[i * 4 + 2] = static_cast<identy::byte>(val >> 8);
-        result.buffer[i * 4 + 3] = static_cast<identy::byte>(val);
+        result.buffer[i * 4 + 0] = static_cast<byte>(val >> 24);
+        result.buffer[i * 4 + 1] = static_cast<byte>(val >> 16);
+        result.buffer[i * 4 + 2] = static_cast<byte>(val >> 8);
+        result.buffer[i * 4 + 3] = static_cast<byte>(val);
     }
 
     return result;
 }
 
-void identy::hs::detail::Sha256::transform(const identy::byte* block) noexcept
+void identy::hs::detail::Sha256::transform(const byte* block) noexcept
 {
     std::uint32_t w[64];
 

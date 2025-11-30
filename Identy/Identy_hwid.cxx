@@ -320,7 +320,7 @@ std::vector<identy::PhysicalDriveInfo> list_drives_linux()
 
 identy::Motherboard identy::snap_motherboard() noexcept
 {
-    identy::Motherboard motherboard;
+    Motherboard motherboard;
     motherboard.cpu = get_cpu_info();
 
     auto smbios_raw = get_smbios_impl();

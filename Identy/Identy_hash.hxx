@@ -3,8 +3,8 @@
 #ifndef UNC_IDENTY_HASH_H
 #define UNC_IDENTY_HASH_H
 
-#include "Identy_hwid.hxx"
 #include "Identy_hash_base.hxx"
+#include "Identy_hwid.hxx"
 
 namespace identy::hs
 {
@@ -29,7 +29,7 @@ namespace identy::hs::detail
  * @see default_hash_ex()
  * @see identy::hs::hash()
  */
-Hash256 default_hash(const identy::Motherboard& board);
+Hash256 default_hash(const Motherboard& board);
 
 /**
  * @brief Computes default SHA-256 hash for extended motherboard information
@@ -51,7 +51,7 @@ Hash256 default_hash(const identy::Motherboard& board);
  * @see default_hash()
  * @see identy::hs::hash()
  */
-Hash256 default_hash_ex(const identy::MotherboardEx& board);
+Hash256 default_hash_ex(const MotherboardEx& board);
 } // namespace identy::hs::detail
 
 namespace identy::hs::detail
@@ -100,7 +100,7 @@ struct DefaultHash final : public IHash<Hash256>
      * @param board Motherboard structure to hash
      * @return Hash256 containing the computed hash value
      */
-    Type operator()(const identy::Motherboard& board) const
+    Type operator()(const Motherboard& board) const
     {
         return default_hash(board);
     }
@@ -133,7 +133,7 @@ struct DefaultHashEx final : public IHash<Hash256>
      * @param board MotherboardEx structure to hash (drives must be pre-sorted)
      * @return Hash256 containing the computed hash value
      */
-    Type operator()(const identy::MotherboardEx& board) const
+    Type operator()(const MotherboardEx& board) const
     {
         return default_hash_ex(board);
     }
@@ -160,7 +160,7 @@ namespace identy::hs
  * @see DefaultHash
  */
 template<typename T>
-concept IdentyHashFn = requires { typename T::Type; } && std::is_invocable_r_v<typename T::Type, T, const identy::Motherboard&>
+concept IdentyHashFn = requires { typename T::Type; } && std::is_invocable_r_v<typename T::Type, T, const Motherboard&>
     && std::is_trivially_constructible_v<T> && std::is_trivially_destructible_v<T>;
 
 /**
@@ -182,7 +182,7 @@ concept IdentyHashFn = requires { typename T::Type; } && std::is_invocable_r_v<t
  * @see DefaultHashEx
  */
 template<typename T>
-concept IdentyHashExFn = requires { typename T::Type; } && std::is_invocable_r_v<typename T::Type, T, const identy::MotherboardEx&>
+concept IdentyHashExFn = requires { typename T::Type; } && std::is_invocable_r_v<typename T::Type, T, const MotherboardEx&>
     && std::is_trivially_constructible_v<T> && std::is_trivially_destructible_v<T>;
 } // namespace identy::hs
 
@@ -223,8 +223,8 @@ namespace identy::hs
  * // fingerprint.buffer now contains 32-byte SHA-256 hash
  * @endcode
  */
-template<IdentyHashFn Hash = identy::hs::detail::DefaultHash>
-auto hash(const identy::Motherboard& mb) -> Hash::Type;
+template<IdentyHashFn Hash = detail::DefaultHash>
+auto hash(const Motherboard& mb) -> Hash::Type;
 
 /**
  * @brief Computes cryptographic hash of extended motherboard information
@@ -269,8 +269,8 @@ auto hash(const identy::Motherboard& mb) -> Hash::Type;
  * // fingerprint.buffer now contains 32-byte SHA-256 hash
  * @endcode
  */
-template<IdentyHashExFn Hash = identy::hs::detail::DefaultHashEx>
-auto hash(const identy::MotherboardEx& mb) -> Hash::Type;
+template<IdentyHashExFn Hash = detail::DefaultHashEx>
+auto hash(const MotherboardEx& mb) -> Hash::Type;
 } // namespace identy::hs
 
 namespace identy::hs
@@ -280,13 +280,13 @@ int compare(Hash&& lhs, Hash&& rhs);
 } // namespace identy::hs
 
 template<identy::hs::IdentyHashFn Hash>
-auto identy::hs::hash(const identy::Motherboard& mb) -> Hash::Type
+auto identy::hs::hash(const Motherboard& mb) -> Hash::Type
 {
     return Hash {}(mb);
 }
 
 template<identy::hs::IdentyHashExFn Hash>
-auto identy::hs::hash(const identy::MotherboardEx& mb) -> Hash::Type
+auto identy::hs::hash(const MotherboardEx& mb) -> Hash::Type
 {
     return Hash {}(mb);
 }

@@ -93,13 +93,13 @@ std::vector<identy::byte> serialize_motherboard_ex(const identy::MotherboardEx& 
 }
 } // anonymous namespace
 
-identy::hs::Hash256 identy::hs::detail::default_hash(const identy::Motherboard& board)
+identy::hs::Hash256 identy::hs::detail::default_hash(const Motherboard& board)
 {
     auto serialized_data = serialize_motherboard(board);
     return Sha256::hash(serialized_data);
 }
 
-identy::hs::Hash256 identy::hs::detail::default_hash_ex(const identy::MotherboardEx& board)
+identy::hs::Hash256 identy::hs::detail::default_hash_ex(const MotherboardEx& board)
 {
     auto serialized_data = serialize_motherboard_ex(board);
     return Sha256::hash(serialized_data);

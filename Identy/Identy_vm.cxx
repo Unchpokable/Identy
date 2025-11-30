@@ -73,7 +73,7 @@ void check_network_adapters_win32(identy::vm::HeuristicVerdict& verdict)
         std::string desc = adapter->Description;
         std::string lowercase_desc = desc;
 
-        std::ranges::transform(lowercase_desc, lowercase_desc.begin(), ::tolower);
+        std::ranges::transform(lowercase_desc, lowercase_desc.begin(), tolower);
 
         auto is_virtual = std::ranges::any_of(known_vm_network_adapters, [lowercase_desc](const std::string& adapter_name) {
             return adapter_name.find(lowercase_desc) != std::string::npos;
@@ -276,7 +276,7 @@ identy::vm::VMConfidence identy::vm::detail::calculate_confidence(const std::vec
     bool critical = false;
 
     for(auto flag : detections) {
-        switch(detail::get_flag_strength(flag)) {
+        switch(get_flag_strength(flag)) {
             case FlagStrength::Weak:
                 ++weak;
                 break;
@@ -311,12 +311,12 @@ identy::vm::VMConfidence identy::vm::detail::calculate_confidence(const std::vec
     return VMConfidence::Unlikely;
 }
 
-identy::vm::HeuristicVerdict identy::vm::DefaultHeuristic::operator()(const identy::Motherboard& mb) const
+identy::vm::HeuristicVerdict identy::vm::DefaultHeuristic::operator()(const Motherboard& mb) const
 {
     return check_mb_common(mb);
 }
 
-identy::vm::HeuristicVerdict identy::vm::DefaultHeuristicEx::operator()(const identy::MotherboardEx& mb) const
+identy::vm::HeuristicVerdict identy::vm::DefaultHeuristicEx::operator()(const MotherboardEx& mb) const
 {
     auto verdict = check_mb_common(mb);
 

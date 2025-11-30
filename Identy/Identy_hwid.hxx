@@ -40,7 +40,7 @@ struct Cpu
     std::string vendor;
 
     /** @brief Processor version information from CPUID EAX register (leaf 0x01) */
-    identy::register_32 version;
+    register_32 version;
 
     /** @brief Hypervisor bit */
     bool hypervisor_bit;
@@ -52,7 +52,7 @@ struct Cpu
     std::uint8_t clflush_line_size;
 
     /** @brief Number of logical processors per physical package */
-    identy::register_32 logical_processors_count;
+    register_32 logical_processors_count;
 
     /** @brief Advanced Programmable Interrupt Controller (APIC) ID */
     std::uint8_t apic_id;
