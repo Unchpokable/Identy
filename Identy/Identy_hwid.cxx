@@ -30,7 +30,7 @@ constexpr identy::dword EDX = 3;
 
 namespace
 {
-void copy_byte(identy::register_32* from, identy::byte* to, std::ptrdiff_t index)
+void copy_byte(const identy::register_32* from, identy::byte* to, std::ptrdiff_t index)
 {
     const identy::byte* byte_ptr = reinterpret_cast<const identy::byte*>(from);
     *to = byte_ptr[index];
