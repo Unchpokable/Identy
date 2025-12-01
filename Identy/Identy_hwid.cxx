@@ -148,12 +148,8 @@ std::string get_nvme_serial(HANDLE h_device)
 
     auto descriptor = reinterpret_cast<identy::nvme::StorageProtocolDataDescriptor*>(buffer.data());
 
-    auto offset = descriptor->ProtocolSpecificData.ProtocolDataOffset;
-    if(offset >= buffer_size) {
-        return {};
-    }
-
-    auto nvme_data = reinterpret_cast<identy::nvme::NvmeIdentifyControllerData*>(buffer.data() + offset);
+    auto nvme_data = reinterpret_cast<identy::nvme::NvmeIdentifyControllerData*>(
+        reinterpret_cast<identy::byte*>(&descriptor->ProtocolSpecificData) + descriptor->ProtocolSpecificData.ProtocolDataOffset);
 
     auto serial = std::string(reinterpret_cast<const char*>(nvme_data->SN), sizeof(nvme_data->SN));
 
