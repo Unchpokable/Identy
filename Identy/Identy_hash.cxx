@@ -28,7 +28,6 @@ std::vector<identy::byte> serialize_motherboard(const identy::Motherboard& board
     // Serialize CPU characteristics
     buffer.push_back(board.cpu.brand_index);
     buffer.push_back(board.cpu.clflush_line_size);
-    buffer.push_back(board.cpu.apic_id);
 
     const auto* logic_proc_count_ptr = reinterpret_cast<const identy::byte*>(&board.cpu.logical_processors_count);
     buffer.insert(buffer.end(), logic_proc_count_ptr, logic_proc_count_ptr + sizeof(board.cpu.logical_processors_count));
@@ -54,9 +53,6 @@ std::vector<identy::byte> serialize_motherboard(const identy::Motherboard& board
 
     // Serialize UUID
     buffer.insert(buffer.end(), board.smbios.uuid, board.smbios.uuid + identy::SMBIOS_uuid_length);
-
-    // Serialize raw SMBIOS tables
-    buffer.insert(buffer.end(), board.smbios.raw_tables_data.begin(), board.smbios.raw_tables_data.end());
 
     return buffer;
 }
