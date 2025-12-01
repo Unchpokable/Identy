@@ -17,9 +17,11 @@ void write_text_common(std::ostream& stream, MB&& mb)
     stream << " Hypervisor signature (if presented)" << mb.cpu.hypervisor_signature << "\n";
 
     stream << "Motherboard:\n";
-    stream << " SMBIOS UUID: ";
-    stream.write(reinterpret_cast<const char*>(mb.smbios.uuid), sizeof(mb.smbios.uuid));
-    stream << "\n";
+    stream << std::format(
+        " SMBIOS UUID: {:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}\n",
+        mb.smbios.uuid[0], mb.smbios.uuid[1], mb.smbios.uuid[2], mb.smbios.uuid[3], mb.smbios.uuid[4], mb.smbios.uuid[5], mb.smbios.uuid[6],
+        mb.smbios.uuid[7], mb.smbios.uuid[8], mb.smbios.uuid[9], mb.smbios.uuid[10], mb.smbios.uuid[11], mb.smbios.uuid[12],
+        mb.smbios.uuid[13], mb.smbios.uuid[14], mb.smbios.uuid[15]);
 
     stream << " SMBIOS Ver: ";
     stream << std::format("{}.{}\n", mb.smbios.major_version, mb.smbios.minor_version);
