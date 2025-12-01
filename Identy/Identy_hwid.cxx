@@ -143,8 +143,6 @@ std::string get_nvme_serial(HANDLE h_device)
         buffer.data(), static_cast<identy::dword>(buffer.size()), &bytes_returned, nullptr);
 
     if(!result) {
-        volatile auto dbg = GetLastError();
-
         return {};
     }
 
@@ -158,13 +156,6 @@ std::string get_nvme_serial(HANDLE h_device)
     auto nvme_data = reinterpret_cast<identy::nvme::NvmeIdentifyControllerData*>(buffer.data() + offset);
 
     auto serial = std::string(reinterpret_cast<const char*>(nvme_data->SN), sizeof(nvme_data->SN));
-
-    serial.erase(std::ranges::find_if(std::ranges::reverse_view(serial),
-                     [](unsigned char ch) {
-                         return !std::isspace(ch) && ch != '\0';
-                     })
-                     .base(),
-        serial.end());
 
     return serial;
 }
