@@ -73,7 +73,7 @@ std::vector<std::uint8_t> get_smbios_uuid(identy::SMBIOS_Raw::Ptr& smbios)
     identy::byte* smbios_end = smbios_begin + smbios->length;
 
     std::vector<std::uint8_t> buffer;
-    buffer.resize(smbios_end - smbios_begin);
+    buffer.reserve(identy::SMBIOS_uuid_length);
 
     while(smbios_begin < smbios_end) {
         auto header = reinterpret_cast<identy::SMBIOS_Header*>(smbios_begin);
