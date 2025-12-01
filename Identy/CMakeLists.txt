@@ -4,6 +4,11 @@ if(CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET Identy PROPERTY CXX_STANDARD 20)
 endif()
 
+# Указываем, где искать заголовочные файлы библиотеки
+target_include_directories(Identy PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+)
+
 if(WIN32)
 target_link_libraries(Identy advapi32 iphlpapi)
 endif()
