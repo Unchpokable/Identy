@@ -50,7 +50,6 @@ void write_binary_common(std::ostream& stream, MB&& mb)
     stream.write(reinterpret_cast<const char*>(&mb.cpu.brand_index), sizeof(mb.cpu.brand_index));
     stream.write(reinterpret_cast<const char*>(&mb.cpu.clflush_line_size), sizeof(mb.cpu.clflush_line_size));
     stream.write(reinterpret_cast<const char*>(&mb.cpu.logical_processors_count), sizeof(mb.cpu.logical_processors_count));
-    stream.write(reinterpret_cast<const char*>(&mb.cpu.apic_id), sizeof(mb.cpu.apic_id));
 
     std::uint32_t brand_size = static_cast<std::uint32_t>(mb.cpu.extended_brand_string.size());
     stream.write(reinterpret_cast<const char*>(&brand_size), sizeof(brand_size));
@@ -73,7 +72,6 @@ void write_binary_common(std::ostream& stream, MB&& mb)
 
     std::uint32_t tables_size = static_cast<std::uint32_t>(mb.smbios.raw_tables_data.size());
     stream.write(reinterpret_cast<const char*>(&tables_size), sizeof(tables_size));
-    stream.write(reinterpret_cast<const char*>(mb.smbios.raw_tables_data.data()), tables_size);
 }
 }; // namespace
 
