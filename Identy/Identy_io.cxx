@@ -14,7 +14,7 @@ void write_text_common(std::ostream& stream, MB&& mb)
     stream << " Vendor: " << mb.cpu.vendor << "\n";
     stream << " Cores: " << mb.cpu.logical_processors_count << "\n";
     stream << " Hypervisor present: " << std::format("{}", mb.cpu.hypervisor_bit) << "\n";
-    stream << " Hypervisor signature (if presented)" << mb.cpu.hypervisor_signature << "\n";
+    stream << " Hypervisor signature (if presented) " << mb.cpu.hypervisor_signature << "\n";
 
     stream << "Motherboard:\n";
     stream << std::format(
