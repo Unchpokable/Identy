@@ -98,7 +98,7 @@ void identy::io::write_text(std::ostream& stream, const MotherboardEx& mb)
     for(std::size_t i = 0; i < mb.drives.size(); ++i) {
         const auto& drive = mb.drives[i];
 
-        stream << std::format(" Drive {}\n", i + i);
+        stream << std::format(" Drive {}\n", i + 1);
         stream << "  Device: " << drive.device_name << "\n";
         stream << "  Serial: " << drive.serial << "\n";
         stream << "  Bus Type: ";
