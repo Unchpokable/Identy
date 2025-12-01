@@ -3,10 +3,7 @@
 #ifndef UNC_IDENTY_NVME_SUPPORT_H
 #define UNC_IDENTY_NVME_SUPPORT_H
 
-#include "Identy_global.h"
 #include "Identy_platform.hxx"
-
-#include <cstdint>
 
 namespace identy::nvme
 {
