@@ -29,7 +29,7 @@ void write_text_common(std::ostream& stream, MB&& mb)
     stream << " SMBIOS DMI Ver: ";
     stream << std::format("{}\n", mb.smbios.dmi_version);
 
-    stream << " SMBIOS 2.0 calling conversion: " << std::format("{}\n", mb.smbios.is_20_calling_used);
+    stream << " SMBIOS 2.0 calling convention: " << std::format("{}\n", mb.smbios.is_20_calling_used);
 }
 
 template<typename MB>
