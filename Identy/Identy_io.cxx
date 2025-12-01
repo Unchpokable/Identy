@@ -69,9 +69,6 @@ void write_binary_common(std::ostream& stream, MB&& mb)
     stream.write(reinterpret_cast<const char*>(&mb.smbios.dmi_version), sizeof(mb.smbios.dmi_version));
 
     stream.write(reinterpret_cast<const char*>(mb.smbios.uuid), sizeof(mb.smbios.uuid));
-
-    std::uint32_t tables_size = static_cast<std::uint32_t>(mb.smbios.raw_tables_data.size());
-    stream.write(reinterpret_cast<const char*>(&tables_size), sizeof(tables_size));
 }
 }; // namespace
 
