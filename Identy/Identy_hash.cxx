@@ -74,6 +74,10 @@ std::vector<identy::byte> serialize_motherboard_ex(const identy::MotherboardEx& 
 
     // Add drive information
     for(const auto& drive : board.drives) {
+        if(drive.bus_type == identy::PhysicalDriveInfo::USB || drive.bus_type == identy::PhysicalDriveInfo::Other) {
+            continue;
+        }
+
         // Serialize bus type
         const auto* bus_type_ptr = reinterpret_cast<const identy::byte*>(&drive.bus_type);
         buffer.insert(buffer.end(), bus_type_ptr, bus_type_ptr + sizeof(drive.bus_type));

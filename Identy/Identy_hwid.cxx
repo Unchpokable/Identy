@@ -341,6 +341,10 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
         case BusTypeUsb:
             info.bus_type = identy::PhysicalDriveInfo::USB;
             break;
+
+        default:
+            info.bus_type = identy::PhysicalDriveInfo::Other;
+            break;
     }
 
     if(info.bus_type == identy::PhysicalDriveInfo::NMVe) {

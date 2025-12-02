@@ -255,7 +255,8 @@ struct PhysicalDriveInfo
     enum BusType {
         SATA, /**< Serial ATA interface */
         NMVe, /**< NVM Express (Non-Volatile Memory express) interface */
-        USB   /**< Universal Serial Bus external interface */
+        USB,  /**< Universal Serial Bus external interface */
+        Other
     } bus_type { SATA };
 
     /** @brief Drive device name for current session (.\\\\.\\PhysicalDriveN for Windows, /dev/ for Linux) */
