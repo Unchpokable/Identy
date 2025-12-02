@@ -16,7 +16,7 @@ std::vector<identy::byte> serialize_motherboard(const identy::Motherboard& board
     std::vector<identy::byte> buffer;
 
     // Reserve approximate size to avoid reallocations
-    buffer.reserve(1024 + board.smbios.raw_tables_data.size());
+    buffer.reserve(1024);
 
     // Serialize CPU vendor string
     buffer.insert(buffer.end(), board.cpu.vendor.begin(), board.cpu.vendor.end());
