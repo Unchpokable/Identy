@@ -116,7 +116,7 @@ struct HeuristicVerdict
     std::vector<VMFlags> detections;
 
     /** @brief Overall confidence level of VM presence */
-    VMConfidence confidence;
+    VMConfidence confidence { VMConfidence::Unlikely };
 
     /**
      * @brief Convenience method to check if system is likely virtual

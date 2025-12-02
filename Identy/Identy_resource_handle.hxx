@@ -154,7 +154,9 @@ class CResourceHandle
 {
 public:
     /** @brief Default constructor initializing null pointer */
-    CResourceHandle() : m_pointer(nullptr) {};
+    CResourceHandle() : m_pointer(nullptr), m_size(0)
+    {
+    }
 
     /**
      * @brief Constructs handle from existing allocated pointer
@@ -175,7 +177,7 @@ public:
      *
      * @param other Source handle to move from
      */
-    CResourceHandle(CResourceHandle&& other);
+    CResourceHandle(CResourceHandle&& other) noexcept;
 
     /**
      * @brief Move assignment operator transferring ownership
@@ -183,7 +185,7 @@ public:
      * @param other Source handle to move from
      * @return Reference to this handle
      */
-    CResourceHandle& operator=(CResourceHandle&& other);
+    CResourceHandle& operator=(CResourceHandle&& other) noexcept;
 
     /**
      * @brief Destructor automatically freeing managed memory
@@ -280,12 +282,12 @@ public:
     operator T*();
 
 private:
-    T* m_pointer;                ///< Pointer to managed memory
-    std::size_t m_size;          ///< Size of allocated memory in bytes
-    bool m_was_moved { false };  ///< Flag indicating this handle was moved from
+    T* m_pointer;               ///< Pointer to managed memory
+    std::size_t m_size;         ///< Size of allocated memory in bytes
+    bool m_was_moved { false }; ///< Flag indicating this handle was moved from
 
-    Alloc m_alloc;               ///< Allocator functor instance
-    Free m_free;                 ///< Deallocator functor instance
+    Alloc m_alloc; ///< Allocator functor instance
+    Free m_free;   ///< Deallocator functor instance
 };
 
 /**
@@ -313,16 +315,17 @@ CResourceHandle<T, Alloc, Free>::CResourceHandle(T* ptr, std::size_t size) : m_p
 }
 
 template<ValueType T, Allocator<T> Alloc, Deallocator<T> Free>
-CResourceHandle<T, Alloc, Free>::CResourceHandle(CResourceHandle&& other)
+CResourceHandle<T, Alloc, Free>::CResourceHandle(CResourceHandle&& other) noexcept
 {
     m_pointer = other.m_pointer;
     m_size = other.m_size;
 
     other.m_was_moved = true;
+    other.m_pointer = nullptr;
 }
 
 template<ValueType T, Allocator<T> Alloc, Deallocator<T> Free>
-CResourceHandle<T, Alloc, Free>& CResourceHandle<T, Alloc, Free>::operator=(CResourceHandle&& other)
+CResourceHandle<T, Alloc, Free>& CResourceHandle<T, Alloc, Free>::operator=(CResourceHandle&& other) noexcept
 {
     if(this != &other) {
         if(m_pointer) {
@@ -333,7 +336,10 @@ CResourceHandle<T, Alloc, Free>& CResourceHandle<T, Alloc, Free>::operator=(CRes
         m_size = other.m_size;
 
         other.m_was_moved = true;
+        other.m_pointer = nullptr;
     }
+
+    return *this;
 }
 
 template<ValueType T, Allocator<T> Alloc, Deallocator<T> Free>
@@ -347,6 +353,10 @@ CResourceHandle<T, Alloc, Free>::~CResourceHandle()
 template<ValueType T, Allocator<T> Alloc, Deallocator<T> Free>
 void CResourceHandle<T, Alloc, Free>::allocate(std::size_t size)
 {
+    if(m_pointer) {
+        m_free(m_pointer);
+    }
+
     m_pointer = m_alloc(size);
     m_size = size;
 }

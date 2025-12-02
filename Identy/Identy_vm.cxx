@@ -76,7 +76,7 @@ void check_network_adapters_win32(identy::vm::HeuristicVerdict& verdict)
         std::ranges::transform(lowercase_desc, lowercase_desc.begin(), tolower);
 
         auto is_virtual = std::ranges::any_of(known_vm_network_adapters, [lowercase_desc](const std::string& adapter_name) {
-            return adapter_name.find(lowercase_desc) != std::string::npos;
+            return lowercase_desc.find(adapter_name) != std::string::npos;
         });
 
         if(is_virtual) {
@@ -313,12 +313,19 @@ identy::vm::VMConfidence identy::vm::detail::calculate_confidence(const std::vec
 
 identy::vm::HeuristicVerdict identy::vm::DefaultHeuristic::operator()(const Motherboard& mb) const
 {
-    return check_mb_common(mb);
+    auto verdict = check_mb_common(mb);
+    verdict.confidence = detail::calculate_confidence(verdict.detections);
+
+    return verdict;
 }
 
 identy::vm::HeuristicVerdict identy::vm::DefaultHeuristicEx::operator()(const MotherboardEx& mb) const
 {
     auto verdict = check_mb_common(mb);
+
+    // todo: analyze disks
+
+    verdict.confidence = detail::calculate_confidence(verdict.detections);
 
     return verdict;
 }

@@ -1,11 +1,8 @@
-#include <algorithm>
-
-#include <ranges>
-
 #include "Identy_pch.hxx"
 
 #include "Identy_hwid.hxx"
 #include "Identy_nvme_support.hxx"
+#include "Identy_strings.hxx"
 
 namespace identy
 {
@@ -39,6 +36,37 @@ constexpr identy::dword EAX = 0;
 constexpr identy::dword EBX = 1;
 constexpr identy::dword ECX = 2;
 constexpr identy::dword EDX = 3;
+} // namespace
+
+namespace
+{
+void intrin_cpuid(int registers[4], int leaf)
+{
+#ifdef IDENTY_MSVC
+    __cpuid(registers, leaf);
+#elif defined(IDENTY_GNUC) || defined(IDENTY_CLANG)
+    unsigned int eax, ebx, ecx, edx;
+    __cpuid(leaf, eax, ebx, ecx, edx);
+    registers[0] = static_cast<int>(eax);
+    registers[1] = static_cast<int>(ebx);
+    registers[2] = static_cast<int>(ecx);
+    registers[3] = static_cast<int>(edx);
+#endif
+}
+
+void intrin_cpuidex(int registers[4], int leaf, int subleaf)
+{
+#ifdef IDENTY_MSVC
+    __cpuidex(registers, leaf, subleaf);
+#elif defined(IDENTY_GNUC) || defined(IDENTY_CLANG)
+    unsigned int eax, ebx, ecx, edx;
+    __cpuid_count(leaf, subleaf, eax, ebx, ecx, edx);
+    registers[0] = static_cast<int>(eax);
+    registers[1] = static_cast<int>(ebx);
+    registers[2] = static_cast<int>(ecx);
+    registers[3] = static_cast<int>(edx);
+#endif
+}
 } // namespace
 
 namespace
@@ -92,6 +120,10 @@ std::vector<std::uint8_t> get_smbios_uuid(identy::SMBIOS_Raw::Ptr& smbios)
         auto header = reinterpret_cast<identy::SMBIOS_Header*>(smbios_begin);
 
         if(header->type == SMBIOS_type_system_information && header->length >= SMBIOS_system_information_header_length) {
+            if(smbios_begin + SMBIOS_uuid_offset + identy::SMBIOS_uuid_length > smbios_end) {
+                break;
+            }
+
             identy::byte* uuid = smbios_begin + SMBIOS_uuid_offset;
 
             for(std::size_t i { 0 }; i < identy::SMBIOS_uuid_length; ++i) {
@@ -148,6 +180,10 @@ std::string get_nvme_serial(HANDLE h_device)
 
     auto descriptor = reinterpret_cast<identy::nvme::StorageProtocolDataDescriptor*>(buffer.data());
 
+    if(descriptor->ProtocolSpecificData.ProtocolDataOffset + sizeof(identy::nvme::NvmeIdentifyControllerData) > buffer.size()) {
+        return {};
+    }
+
     auto nvme_data = reinterpret_cast<identy::nvme::NvmeIdentifyControllerData*>(
         reinterpret_cast<identy::byte*>(&descriptor->ProtocolSpecificData) + descriptor->ProtocolSpecificData.ProtocolDataOffset);
 
@@ -162,7 +198,7 @@ identy::Cpu get_cpu_info()
 
     identy::register_32 cpu_info[4] = { -1 };
 
-    __cpuid(cpu_info, cpuleaf_vendorID);
+    intrin_cpuid(cpu_info, cpuleaf_vendorID);
 
     char vendor[13] = { 0 };
 
@@ -174,7 +210,7 @@ identy::Cpu get_cpu_info()
 
     identy::register_32 max_leaf = cpu_info[EAX];
 
-    __cpuid(cpu_info, cpuleaf_family);
+    intrin_cpuid(cpu_info, cpuleaf_family);
 
     std::memcpy(&cpu.version, &cpu_info[EAX], sizeof(identy::register_32));
 
@@ -190,7 +226,7 @@ identy::Cpu get_cpu_info()
     std::memcpy(&cpu.instruction_set.basic, &cpu_info[EDX], sizeof(identy::register_32));
     std::memcpy(&cpu.instruction_set.modern, &cpu_info[ECX], sizeof(identy::register_32));
 
-    __cpuidex(cpu_info, cpuleaf_ext_instructions, 0);
+    intrin_cpuidex(cpu_info, cpuleaf_ext_instructions, 0);
 
     std::memcpy(&cpu.instruction_set.extended_modern[0], &cpu_info[EBX], sizeof(identy::register_32));
     std::memcpy(&cpu.instruction_set.extended_modern[1], &cpu_info[ECX], sizeof(identy::register_32));
@@ -198,15 +234,15 @@ identy::Cpu get_cpu_info()
 
     char brand[49] = { 0 };
 
-    __cpuid(reinterpret_cast<identy::register_32*>(brand + 0), cpuleaf_ext_brand + 0);
-    __cpuid(reinterpret_cast<identy::register_32*>(brand + 16), cpuleaf_ext_brand + 1);
-    __cpuid(reinterpret_cast<identy::register_32*>(brand + 32), cpuleaf_ext_brand + 2);
+    intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 0), cpuleaf_ext_brand + 0);
+    intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 16), cpuleaf_ext_brand + 1);
+    intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 32), cpuleaf_ext_brand + 2);
 
     cpu.extended_brand_string = std::string(brand);
 
     if(cpu.hypervisor_bit) {
         char hyperv_sig[13] = { 0 };
-        __cpuid(cpu_info, cpuleaf_hypervisor);
+        intrin_cpuid(cpu_info, cpuleaf_hypervisor);
 
         identy::register_32 max_hypervisor_leaf = cpu_info[EAX];
 
@@ -234,7 +270,7 @@ identy::Cpu get_cpu_info()
         identy::register_32 level = 0;
 
         while(true) {
-            __cpuidex(cpu_info, leaf_to_use, level);
+            intrin_cpuidex(cpu_info, leaf_to_use, level);
 
             identy::byte level_type;
             copy_byte(&cpu_info[ECX], &level_type, 1);
@@ -253,7 +289,7 @@ identy::Cpu get_cpu_info()
         }
     }
     else if(max_leaf >= cpuleaf_family) {
-        __cpuid(cpu_info, cpuleaf_family);
+        intrin_cpuid(cpu_info, cpuleaf_family);
         identy::byte nb_proc;
         copy_byte(&cpu_info[EBX], &nb_proc, 2);
         cpu.logical_processors_count = static_cast<identy::register_32>(nb_proc);
@@ -314,9 +350,11 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
         info.serial = std::string(reinterpret_cast<const char*>(buffer) + desc->SerialNumberOffset);
     }
 
-    info.serial.erase(std::remove(info.serial.begin(), info.serial.end(), ' '), info.serial.end());
+    info.serial = std::string(identy::strings::trim_whitespace(info.serial));
 
     info.device_name = drive_name;
+
+    CloseHandle(h_device);
 
     return info;
 }
@@ -324,16 +362,17 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
 std::vector<identy::PhysicalDriveInfo> list_drives_win32()
 {
     constexpr identy::dword buffer_size = 65536;
-    thread_local char buffer[buffer_size];
+    identy::CResourceHandle<char, identy::CAlloc<char>, identy::CFree<char>> buffer;
+    buffer.allocate(buffer_size);
 
-    identy::dword count = QueryDosDeviceA(NULL, buffer, buffer_size);
+    identy::dword count = QueryDosDeviceA(nullptr, buffer.data(), buffer_size);
     if(count == 0) {
         return {};
     }
 
     std::vector<std::string> drives;
 
-    char* current_info = buffer;
+    char* current_info = buffer.data();
     while(*current_info) {
         std::string_view device_name(current_info);
 
@@ -377,6 +416,9 @@ identy::Motherboard identy::snap_motherboard() noexcept
     motherboard.cpu = get_cpu_info();
 
     auto smbios_raw = get_smbios_impl();
+    if(smbios_raw == nullptr) {
+        return motherboard;
+    }
 
 #ifdef IDENTY_WIN32
     motherboard.smbios.is_20_calling_used = smbios_raw->used_20_calling_method == 1;

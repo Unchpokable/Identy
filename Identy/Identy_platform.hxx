@@ -11,4 +11,12 @@
 #define IDENTY_WIN32
 #endif
 
+#if defined(__clang__)
+#define IDENTY_CLANG
+#elif defined(__GNUC__)
+#define IDENTY_GNUC
+#elif defined(_MSC_VER)
+#define IDENTY_MSVC
+#endif
+
 #endif

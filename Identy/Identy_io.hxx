@@ -193,19 +193,6 @@ void identy::io::write_hash(std::ostream& stream, Hash&& hash)
         return; // todo: throw exception?
     }
 
-    auto currp = stream.tellp();
-
-    stream.seekp(std::ios::end);
-    auto endp = stream.tellp();
-
-    auto space = endp - currp;
-
-    stream.seekp(currp);
-
-    if(space < sizeof(hash.buffer)) {
-        return; // todo: throw exception?
-    }
-
     stream.write(reinterpret_cast<const char*>(hash.buffer), sizeof(hash.buffer));
 }
 
