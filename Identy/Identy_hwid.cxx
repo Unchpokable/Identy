@@ -362,7 +362,7 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
 std::vector<identy::PhysicalDriveInfo> list_drives_win32()
 {
     constexpr identy::dword buffer_size = 65536;
-    identy::CResourceHandle<char, identy::CAlloc<char>, identy::CFree<char>> buffer;
+    identy::CStdHandle<char> buffer;
     buffer.allocate(buffer_size);
 
     identy::dword count = QueryDosDeviceA(nullptr, buffer.data(), buffer_size);
