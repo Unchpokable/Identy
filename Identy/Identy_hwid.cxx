@@ -28,6 +28,7 @@ constexpr identy::register_32 cpuleaf_ext_brand = 0x80000002;
 constexpr identy::register_32 cpuleaf_hypervisor = 0x40000000;
 constexpr identy::register_32 cpuleaf_extended_topology = 0x0000001F;
 constexpr identy::register_32 cpuleaf_extended_topology_legacy = 0x0000000B;
+constexpr identy::register_32 cpuleaf_ext_brand_test = 0x80000000;
 } // namespace
 
 namespace
@@ -232,13 +233,22 @@ identy::Cpu get_cpu_info()
     std::memcpy(&cpu.instruction_set.extended_modern[1], &cpu_info[ECX], sizeof(identy::register_32));
     std::memcpy(&cpu.instruction_set.extended_modern[2], &cpu_info[EDX], sizeof(identy::register_32));
 
-    char brand[49] = { 0 };
+    intrin_cpuid(cpu_info, cpuleaf_ext_brand_test);
+    auto max_extended_leaf = static_cast<unsigned int>(cpu_info[EAX]);
 
-    intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 0), cpuleaf_ext_brand + 0);
-    intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 16), cpuleaf_ext_brand + 1);
-    intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 32), cpuleaf_ext_brand + 2);
+    if(max_extended_leaf >= static_cast<unsigned int>(cpuleaf_ext_brand_test) + 4) {
+        char brand[49] = { 0 };
 
-    cpu.extended_brand_string = std::string(brand);
+        intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 0), cpuleaf_ext_brand + 0);
+        intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 16), cpuleaf_ext_brand + 1);
+        intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 32), cpuleaf_ext_brand + 2);
+
+        cpu.extended_brand_string = std::string(brand);
+    }
+    else {
+        cpu.extended_brand_string = "unavailable";
+        cpu.too_old = true;
+    }
 
     if(cpu.hypervisor_bit) {
         char hyperv_sig[13] = { 0 };
