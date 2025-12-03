@@ -4,9 +4,6 @@
 #include "Identy_nvme_support.hxx"
 #include "Identy_strings.hxx"
 
-#ifdef IDENTY_LINUX
-#endif
-
 namespace identy
 {
 #ifdef IDENTY_WIN32
