@@ -4,6 +4,9 @@
 #include "Identy_nvme_support.hxx"
 #include "Identy_strings.hxx"
 
+#ifdef IDENTY_LINUX
+#endif
+
 namespace identy
 {
 #ifdef IDENTY_WIN32
@@ -99,11 +102,23 @@ identy::SMBIOS_Raw::Ptr get_smbios_win32()
 
 #define get_smbios_impl get_smbios_win32
 #else
-identy::SMBIOS get_smbios_linux()
+identy::SMBIOS_Raw::Ptr get_smbios_linux()
 {
-    // todo: open /sys/firmware/dmi/tables/DMI and read it into SMBIOS.data field
+    std::ifstream file("/sys/firmware/dmi/tables/DMI", std::ios::binary | std::ios::ate);
 
-    return identy::SMBIOS::Ptr();
+    if(!file.is_open()) {
+        return {};
+    }
+
+    auto size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    identy::SMBIOS_Raw::Ptr smbios_ptr;
+    smbios_ptr.allocate(size);
+
+    file.read(smbios_ptr.data(), size);
+
+    return smbios_ptr;
 }
 
 #define get_smbios_impl get_smbios_linux
@@ -410,11 +425,72 @@ std::vector<identy::PhysicalDriveInfo> list_drives_win32()
 
 #define list_drives_impl list_drives_win32
 #else
+std::string read_sysfs_value(const std::filesystem::path& path)
+{
+    if(!fs::exists(path))
+        return "";
+
+    std::ifstream file(path);
+    std::string value;
+    std::getline(file, value);
+
+    value = identy::strings::trim_whitespace(value);
+
+    return value;
+}
+
 std::vector<identy::PhysicalDriveInfo> list_drives_linux()
 {
-    // todo: list all physical drives using linux\posix API
-
     std::vector<identy::PhysicalDriveInfo> drive_infos;
+
+    for(const auto& entry : std::filesystem::directory_iterator("/sys/block")) {
+        auto device = entry.path().filename().string();
+
+        if(device.starts_with("loop") || device.starts_with("ram") || device.starts_with("dm-")) {
+            continue;
+        }
+
+        identy::PhysicalDriveInfo info;
+
+        if(device.starts_with("nvme")) {
+            info.bus_type = identy::PhysicalDriveInfo::NMVe;
+
+            info.serial = read_sysfs_value(entry.path() / "serial");
+        }
+        else if(device.starts_with("sd")) {
+            auto subsystem_path = entry.path() / "device" / "subsystem";
+
+            if(std::filesystem::exists(subsystem_path)) {
+                auto target = std::filesystem::read_symlink(subsystem_path);
+
+                auto subsystem = target.filename();
+
+                if(subsystem == "scsi" || subsystem == "ata") {
+                    info.bus_type = identy::PhysicalDriveInfo::SATA;
+                }
+                else if(subsystem == "usb") {
+                    info.bus_type = identy::PhysicalDriveInfo::USB;
+                }
+                else {
+                    info.bus_type = identy::PhysicalDriveInfo::Other;
+                }
+            }
+            else {
+                info.bus_type = identy::PhysicalDriveInfo::Other;
+            }
+
+            info.serial = read_sysfs_value(entry.path() / "device" / "serial");
+
+            if(info.serial.empty()) {
+                info.serial = read_sysfs_value(entry.path() / "device" / "vpd_pg80");
+            }
+        }
+        else {
+            continue;
+        }
+
+        drive_infos.push_back(info);
+    }
 
     return drive_infos;
 }

@@ -3,12 +3,10 @@
 #ifndef UNC_IDENTY_PLATFORM_IDENTITY_H
 #define UNC_IDENTY_PLATFORM_IDENTITY_H
 
-#ifndef _WIN32
-#error "Identy currently supports only windows platforms!"
-#endif
-
 #ifdef _WIN32
 #define IDENTY_WIN32
+#elif defined(__linux__)
+#define IDENTY_LINUX
 #endif
 
 #if defined(__clang__)
