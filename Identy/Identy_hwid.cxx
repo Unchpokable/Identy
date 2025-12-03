@@ -84,9 +84,9 @@ namespace
 #ifdef IDENTY_WIN32
 identy::SMBIOS_Raw::Ptr get_smbios_win32()
 {
-    identy::dword size = GetSystemFirmwareTable('RSMB', 0, NULL, 0);
+    identy::dword size = GetSystemFirmwareTable('RSMB', 0, nullptr, 0);
     if(size == 0) {
-        return identy::SMBIOS_Raw::Ptr();
+        return {};
     }
 
     identy::SMBIOS_Raw::Ptr smbios_ptr;
@@ -316,7 +316,7 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
 {
     auto path = std::format(R"(\\.\{})", drive_name);
 
-    HANDLE h_device = CreateFileA(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, NULL);
+    HANDLE h_device = CreateFileA(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
     if(h_device == INVALID_HANDLE_VALUE) {
         return std::nullopt;
     }
