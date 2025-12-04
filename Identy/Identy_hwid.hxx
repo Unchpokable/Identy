@@ -103,6 +103,7 @@ struct Cpu
  * @note The actual size of SMBIOS_table_data is determined at runtime
  *       based on the length field.
  */
+#pragma pack(push, 1)
 struct SMBIOS_Win32
 {
     /** @brief Smart pointer handle type for safe memory management */
@@ -129,7 +130,46 @@ struct SMBIOS_Win32
 
 /** @brief Platform-specific alias for raw SMBIOS structure on Windows */
 using SMBIOS_Raw = SMBIOS_Win32;
-#else
+#elif defined(IDENTY_LINUX)
+struct SMBIOS_EntryPoint32
+{
+    char anchor[4];
+    byte checksum;
+    byte length;
+    byte major_version;
+    byte minor_version;
+    word max_structure_size;
+    byte entry_point_revision;
+    byte formatted_area[5];
+
+    char intermediate_anchor[5];
+    byte intermediate_checksum;
+    word structure_table_length;
+    dword structure_table_address;
+    word number_of_structures;
+    byte bcd_revision;
+};
+
+struct SMBIOS_EntryPoint64
+{
+    char anchor[5];
+    byte checksum;
+    byte length;
+    byte major_version;
+    byte minor_version;
+    byte docrev;
+    byte entry_point_revision;
+    byte reserved;
+    dword structure_table_max_size;
+    qword structure_table_address;
+};
+
+enum SMBIOS_Entry_Type {
+    Unknown,
+    Entry_32bit,
+    Entry_64bit
+};
+
 /**
  * @brief SMBIOS data structure for UNIX/Linux platforms
  *
@@ -149,6 +189,12 @@ struct SMBIOS_Linux
 {
     /** @brief Smart pointer handle type for safe memory management */
     using Ptr = CStdHandle<SMBIOS_Linux>;
+
+    /** @brief SMBIOS specification major version number */
+    byte SMBIOS_major_version;
+
+    /** @brief SMBIOS specification minor version number */
+    byte SMBIOS_minor_version;
 
     /** @brief Total length of the SMBIOS table data in bytes */
     dword length;
@@ -174,7 +220,6 @@ using SMBIOS_Raw = SMBIOS_Linux;
  *
  * @see SMBIOS specification for complete structure definitions
  */
-#pragma pack(push, 1)
 struct SMBIOS_Header
 {
     /** @brief SMBIOS structure type identifier (e.g., 0=BIOS, 1=System, 2=Baseboard) */

@@ -98,7 +98,56 @@ identy::SMBIOS_Raw::Ptr get_smbios_win32()
 }
 
 #define get_smbios_impl get_smbios_win32
-#else
+#elif defined(IDENTY_LINUX)
+identy::SMBIOS_Entry_Type get_smbios_entry_type(const identy::byte* data, std::size_t size)
+{
+    if(size >= 4 && std::memcmp(data, "_SM_", 4) == 0) {
+        return identy::Entry_32bit;
+    }
+
+    if(size >= 5 && std::memcmp(data, "_SM3_", 5) == 0) {
+        return SMBIOS_Entry_Type::Entry_64bit;
+    }
+    return SMBIOS_Entry_Type::Unknown;
+}
+
+void get_smbios_versions(identy::SMBIOS_Raw::Ptr& smbios)
+{
+    std::ifstream file("/sys/firmware/dmi/tables/smbios_entry_point", std::ios::binary | std::ios::ate);
+
+    if(!file.is_open()) {
+        return; // todo: throw or log
+    }
+
+    auto size = file.tellg();
+
+    file.seekg(0);
+
+    std::vector<identy::byte> buffer;
+    buffer.resize(size);
+
+    auto type = get_smbios_entry_type(buffer.data(), size);
+
+    switch(type) {
+        case identy::Entry_32bit:
+            auto entry = reinterpret_cast<const identy::SMBIOS_EntryPoint32>(buffer.data());
+
+            smbios->SMBIOS_major_version = entry.major_version;
+            smbios->SMBIOS_minor_version = entry.minor_version;
+            break;
+
+        case identy::Entry_64bit:
+            auto entry = reinterpret_cast<const identy::SMBIOS_EntryPoint64>(buffer.data());
+
+            smbios->SMBIOS_major_version = entry.major_version;
+            smbios->SMBIOS_minor_version = entry.minor_version;
+            break;
+
+        default:
+            break; // todo: throw or log
+    }
+}
+
 identy::SMBIOS_Raw::Ptr get_smbios_linux()
 {
     std::ifstream file("/sys/firmware/dmi/tables/DMI", std::ios::binary | std::ios::ate);
@@ -111,9 +160,13 @@ identy::SMBIOS_Raw::Ptr get_smbios_linux()
     file.seekg(0, std::ios::beg);
 
     identy::SMBIOS_Raw::Ptr smbios_ptr;
-    smbios_ptr.allocate(size);
+    smbios_ptr.allocate(sizeof(identy::SMBIOS_Raw) + size);
 
-    file.read(smbios_ptr.data(), size);
+    file.read(smbios_ptr.data() + offsetof(identy::SMBIOS_Raw, SMBIOS_table_data), size);
+
+    smbios_ptr->length = size;
+
+    get_smbios_versions(smbios_ptr);
 
     return smbios_ptr;
 }
