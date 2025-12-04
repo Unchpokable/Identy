@@ -76,8 +76,7 @@ concept Deallocator = std::is_invocable_v<Free, Value*> && std::is_trivially_con
  *
  * @tparam T Managed value type
  *
- * @note Currently does not throw on allocation failure (returns nullptr).
- *       Future versions may throw std::bad_alloc.
+ * @exception std::bad_alloc
  */
 template<ValueType T>
 struct CAlloc
@@ -91,7 +90,9 @@ struct CAlloc
     T* operator()(std::size_t size)
     {
         auto memory_ptr = std::malloc(size);
-        // todo: throw if returned nullpointer
+        if(memory_ptr == nullptr) {
+            throw std::bad_alloc();
+        }
 
         return reinterpret_cast<T*>(memory_ptr);
     }
@@ -401,13 +402,13 @@ void CResourceHandle<T, Alloc, Free>::set_size(std::size_t new_size)
 }
 
 template<ValueType T, Allocator<T> Alloc, Deallocator<T> Free>
-inline T* CResourceHandle<T, Alloc, Free>::operator->() const noexcept
+T* CResourceHandle<T, Alloc, Free>::operator->() const noexcept
 {
     return m_pointer;
 }
 
 template<ValueType T, Allocator<T> Alloc, Deallocator<T> Free>
-inline T* CResourceHandle<T, Alloc, Free>::operator->() noexcept
+T* CResourceHandle<T, Alloc, Free>::operator->() noexcept
 {
     return m_pointer;
 }
