@@ -200,8 +200,6 @@ public:
      *
      * @param size Number of bytes to allocate
      *
-     * @warning Does not free previously allocated memory. Call from
-     *          a default-constructed or moved-from handle to avoid leaks.
      */
     void allocate(std::size_t size);
 
