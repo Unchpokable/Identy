@@ -87,27 +87,11 @@ struct Cpu
     bool too_old { false };
 };
 
-#ifdef IDENTY_WIN32
-/**
- * @brief SMBIOS data structure for Windows platforms
- *
- * Platform-specific SMBIOS representation for Win32 systems obtained via
- * the GetSystemFirmwareTable Windows API function with 'RSMB' signature.
- * This structure contains the raw SMBIOS table data along with version
- * information and metadata provided by the Windows API.
- *
- * @warning This structure uses a flexible array member and must ONLY be
- *          operated through the ::Ptr handle (CStdHandle) to ensure proper
- *          memory management and size allocation.
- *
- * @note The actual size of SMBIOS_table_data is determined at runtime
- *       based on the length field.
- */
 #pragma pack(push, 1)
-struct SMBIOS_Win32
+struct SMBIOS_Raw
 {
     /** @brief Smart pointer handle type for safe memory management */
-    using Ptr = CStdHandle<SMBIOS_Win32>;
+    using Ptr = CStdHandle<SMBIOS_Raw>;
 
     /** @brief Flag indicating whether SMBIOS 2.0 calling method was used (1 = yes, 0 = no) */
     byte used_20_calling_method;
@@ -128,9 +112,7 @@ struct SMBIOS_Win32
     byte SMBIOS_table_data[1];
 };
 
-/** @brief Platform-specific alias for raw SMBIOS structure on Windows */
-using SMBIOS_Raw = SMBIOS_Win32;
-#elif defined(IDENTY_LINUX)
+#if defined(IDENTY_LINUX)
 struct SMBIOS_EntryPoint32
 {
     char anchor[4];
@@ -169,42 +151,6 @@ enum SMBIOS_Entry_Type {
     Entry_32bit,
     Entry_64bit
 };
-
-/**
- * @brief SMBIOS data structure for UNIX/Linux platforms
- *
- * Platform-specific SMBIOS representation for UNIX-like systems, typically
- * obtained by reading /sys/firmware/dmi/tables/DMI or /dev/mem.
- * This structure contains only the raw SMBIOS table data and its length,
- * without additional metadata headers.
- *
- * @warning This structure uses a flexible array member and must ONLY be
- *          operated through the ::Ptr handle (CStdHandle) to ensure proper
- *          memory management and size allocation.
- *
- * @note The actual size of SMBIOS_table_data is determined at runtime
- *       based on the length field.
- */
-struct SMBIOS_Linux
-{
-    /** @brief Smart pointer handle type for safe memory management */
-    using Ptr = CStdHandle<SMBIOS_Linux>;
-
-    /** @brief SMBIOS specification major version number */
-    byte SMBIOS_major_version;
-
-    /** @brief SMBIOS specification minor version number */
-    byte SMBIOS_minor_version;
-
-    /** @brief Total length of the SMBIOS table data in bytes */
-    dword length;
-
-    /** @brief Flexible array member containing the raw SMBIOS structure table data */
-    byte SMBIOS_table_data[1];
-};
-
-/** @brief Platform-specific alias for raw SMBIOS structure on UNIX/Linux */
-using SMBIOS_Raw = SMBIOS_Linux;
 #endif
 
 /**

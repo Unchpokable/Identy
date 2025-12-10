@@ -560,18 +560,10 @@ identy::Motherboard identy::snap_motherboard() noexcept
         return motherboard;
     }
 
-#ifdef IDENTY_WIN32
-    motherboard.smbios.is_20_calling_used = smbios_raw->used_20_calling_method == 1;
     motherboard.smbios.major_version = smbios_raw->SMBIOS_major_version;
     motherboard.smbios.minor_version = smbios_raw->SMBIOS_minor_version;
+    motherboard.smbios.is_20_calling_used = smbios_raw->used_20_calling_method == 1;
     motherboard.smbios.dmi_version = smbios_raw->dmi_revision;
-#else
-    // todo: get from Linux system APIs
-    motherboard.smbios.is_20_calling_used = false;
-    motherboard.smbios.major_version = 255;
-    motherboard.smbios.minor_version = 255;
-    motherboard.smbios.dmi_version = 255;
-#endif
 
     motherboard.smbios.raw_tables_data.resize(smbios_raw->length);
     std::memcpy(motherboard.smbios.raw_tables_data.data(), smbios_raw->SMBIOS_table_data, smbios_raw->length);
