@@ -1,4 +1,15 @@
-﻿add_library(Identy "Identy_hwid.cxx" "Identy_vm.cxx" "Identy_hash.cxx" "Identy_io.cxx" "Identy_sha256.cxx" "Identy_string.cxx")
+# Include platform-specific sources (sets IDENTY_PLATFORM_SOURCES variable)
+add_subdirectory(Platform)
+
+add_library(Identy
+    "Identy_hwid.cxx"
+    "Identy_vm.cxx"
+    "Identy_hash.cxx"
+    "Identy_io.cxx"
+    "Identy_sha256.cxx"
+    "Identy_string.cxx"
+    ${IDENTY_PLATFORM_SOURCES}
+)
 
 if(CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET Identy PROPERTY CXX_STANDARD 20)
@@ -10,5 +21,5 @@ target_include_directories(Identy PUBLIC
 )
 
 if(WIN32)
-target_link_libraries(Identy advapi32 iphlpapi)
+    target_link_libraries(Identy advapi32 iphlpapi)
 endif()

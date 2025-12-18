@@ -3,8 +3,6 @@
 #ifndef UNC_IDENTY_NVME_SUPPORT_H
 #define UNC_IDENTY_NVME_SUPPORT_H
 
-#include "Identy_platform.hxx"
-
 namespace identy::nvme
 {
 // Ensure structures are tightly packed to match NVMe specification layout
