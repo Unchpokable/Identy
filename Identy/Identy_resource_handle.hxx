@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef UNC_INDENTY_RESOURCE_HANDLE_H
-#define UNC_INDENTY_RESOURCE_HANDLE_H
+#ifndef UNC_IDENTY_RESOURCE_HANDLE_H
+#define UNC_IDENTY_RESOURCE_HANDLE_H
 
 #include <cstdlib>
 
@@ -172,13 +172,13 @@ void CResourceHandle<T, Alloc, Free>::set_size(std::size_t new_size)
 }
 
 template<ValueType T, Allocator<T> Alloc, Deallocator<T> Free>
-inline T* CResourceHandle<T, Alloc, Free>::operator->() const noexcept
+T* CResourceHandle<T, Alloc, Free>::operator->() const noexcept
 {
     return m_pointer;
 }
 
 template<ValueType T, Allocator<T> Alloc, Deallocator<T> Free>
-inline T* CResourceHandle<T, Alloc, Free>::operator->() noexcept
+T* CResourceHandle<T, Alloc, Free>::operator->() noexcept
 {
     return m_pointer;
 }

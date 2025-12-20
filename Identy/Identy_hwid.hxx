@@ -321,7 +321,7 @@ namespace identy
  * @see snap_motherboard_ex()
  * @see Motherboard
  */
-IDENTY_EXPORT Motherboard snap_motherboard() noexcept;
+IDENTY_EXPORT Motherboard snap_motherboard();
 
 /**
  * @brief Captures complete motherboard information including storage devices
@@ -346,12 +346,12 @@ IDENTY_EXPORT Motherboard snap_motherboard() noexcept;
  * @see snap_motherboard()
  * @see MotherboardEx
  */
-IDENTY_EXPORT MotherboardEx snap_motherboard_ex() noexcept;
+IDENTY_EXPORT MotherboardEx snap_motherboard_ex();
 } // namespace identy
 
 namespace identy
 {
-IDENTY_EXPORT std::vector<PhysicalDriveInfo> list_drives() noexcept;
+IDENTY_EXPORT std::vector<PhysicalDriveInfo> list_drives();
 } // namespace identy
 
 #endif

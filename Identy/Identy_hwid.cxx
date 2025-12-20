@@ -318,7 +318,7 @@ std::vector<identy::PhysicalDriveInfo> list_drives_linux()
 
 } // namespace
 
-identy::Motherboard identy::snap_motherboard() noexcept
+identy::Motherboard identy::snap_motherboard()
 {
     Motherboard motherboard;
     motherboard.cpu = get_cpu_info();
@@ -347,7 +347,7 @@ identy::Motherboard identy::snap_motherboard() noexcept
     return motherboard;
 }
 
-identy::MotherboardEx identy::snap_motherboard_ex() noexcept
+identy::MotherboardEx identy::snap_motherboard_ex()
 {
     MotherboardEx motherboard;
 
@@ -361,7 +361,7 @@ identy::MotherboardEx identy::snap_motherboard_ex() noexcept
     return motherboard;
 }
 
-std::vector<identy::PhysicalDriveInfo> identy::list_drives() noexcept
+std::vector<identy::PhysicalDriveInfo> identy::list_drives()
 {
     return list_drives_impl();
 }
