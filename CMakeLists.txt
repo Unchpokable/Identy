@@ -12,4 +12,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Platform detection - defines IDENTY_WIN32 or IDENTY_LINUX
+if(WIN32)
+    add_compile_definitions(IDENTY_WIN32)
+elseif(UNIX AND NOT APPLE)
+    add_compile_definitions(IDENTY_LINUX)
+endif()
+
 add_subdirectory ("Identy")

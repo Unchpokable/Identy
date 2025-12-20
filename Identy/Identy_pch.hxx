@@ -3,20 +3,26 @@
 #ifndef IDENTY_PRECOMPILED_H
 #define IDENTY_PRECOMPILED_H
 
+#include <algorithm>
+#include <cassert>
+#include <concepts>
 #include <cstdint>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <iomanip>
 #include <optional>
+#include <ranges>
+#include <span>
 #include <sstream>
 #include <string>
-#include <vector>
 #include <type_traits>
-#include <concepts>
-#include <span>
-#include <cassert>
+#include <vector>
 
+#ifdef _MSC_VER
 #include <intrin.h>
+#else
+#include <cpuid.h>
+#endif
 
 #endif

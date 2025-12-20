@@ -14,12 +14,14 @@ void write_text_common(std::ostream& stream, MB&& mb)
     stream << " Vendor: " << mb.cpu.vendor << "\n";
     stream << " Cores: " << mb.cpu.logical_processors_count << "\n";
     stream << " Hypervisor present: " << std::format("{}", mb.cpu.hypervisor_bit) << "\n";
-    stream << " Hypervisor signature (if presented)" << mb.cpu.hypervisor_signature << "\n";
+    stream << " Hypervisor signature (if presented) " << mb.cpu.hypervisor_signature << "\n";
 
     stream << "Motherboard:\n";
-    stream << " SMBIOS UUID: ";
-    stream.write(reinterpret_cast<const char*>(mb.smbios.uuid), sizeof(mb.smbios.uuid));
-    stream << "\n";
+    stream << std::format(
+        " SMBIOS UUID: {:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}\n",
+        mb.smbios.uuid[0], mb.smbios.uuid[1], mb.smbios.uuid[2], mb.smbios.uuid[3], mb.smbios.uuid[4], mb.smbios.uuid[5], mb.smbios.uuid[6],
+        mb.smbios.uuid[7], mb.smbios.uuid[8], mb.smbios.uuid[9], mb.smbios.uuid[10], mb.smbios.uuid[11], mb.smbios.uuid[12],
+        mb.smbios.uuid[13], mb.smbios.uuid[14], mb.smbios.uuid[15]);
 
     stream << " SMBIOS Ver: ";
     stream << std::format("{}.{}\n", mb.smbios.major_version, mb.smbios.minor_version);
@@ -27,7 +29,7 @@ void write_text_common(std::ostream& stream, MB&& mb)
     stream << " SMBIOS DMI Ver: ";
     stream << std::format("{}\n", mb.smbios.dmi_version);
 
-    stream << " SMBIOS 2.0 calling conversion: " << std::format("{}\n", mb.smbios.is_20_calling_used);
+    stream << " SMBIOS 2.0 calling convention: " << std::format("{}\n", mb.smbios.is_20_calling_used);
 }
 
 template<typename MB>
@@ -48,7 +50,6 @@ void write_binary_common(std::ostream& stream, MB&& mb)
     stream.write(reinterpret_cast<const char*>(&mb.cpu.brand_index), sizeof(mb.cpu.brand_index));
     stream.write(reinterpret_cast<const char*>(&mb.cpu.clflush_line_size), sizeof(mb.cpu.clflush_line_size));
     stream.write(reinterpret_cast<const char*>(&mb.cpu.logical_processors_count), sizeof(mb.cpu.logical_processors_count));
-    stream.write(reinterpret_cast<const char*>(&mb.cpu.apic_id), sizeof(mb.cpu.apic_id));
 
     std::uint32_t brand_size = static_cast<std::uint32_t>(mb.cpu.extended_brand_string.size());
     stream.write(reinterpret_cast<const char*>(&brand_size), sizeof(brand_size));
@@ -68,10 +69,6 @@ void write_binary_common(std::ostream& stream, MB&& mb)
     stream.write(reinterpret_cast<const char*>(&mb.smbios.dmi_version), sizeof(mb.smbios.dmi_version));
 
     stream.write(reinterpret_cast<const char*>(mb.smbios.uuid), sizeof(mb.smbios.uuid));
-
-    std::uint32_t tables_size = static_cast<std::uint32_t>(mb.smbios.raw_tables_data.size());
-    stream.write(reinterpret_cast<const char*>(&tables_size), sizeof(tables_size));
-    stream.write(reinterpret_cast<const char*>(mb.smbios.raw_tables_data.data()), tables_size);
 }
 }; // namespace
 
@@ -101,7 +98,7 @@ void identy::io::write_text(std::ostream& stream, const MotherboardEx& mb)
     for(std::size_t i = 0; i < mb.drives.size(); ++i) {
         const auto& drive = mb.drives[i];
 
-        stream << std::format(" Drive {}\n", i + i);
+        stream << std::format(" Drive {}\n", i + 1);
         stream << "  Device: " << drive.device_name << "\n";
         stream << "  Serial: " << drive.serial << "\n";
         stream << "  Bus Type: ";

@@ -6,11 +6,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg)](https://github.com/yourusername/identy)
+[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://github.com/Unchpokable/Identy)
 
 ## Overview
 
-**Identy** is a lightweight, cross-platform C++ library designed for creating stable hardware fingerprints without direct system API interaction complexity. It provides easy access to CPU information, SMBIOS firmware data, and physical storage device identifiers — everything needed to generate unique, persistent machine identifiers.
+**Identy** is a lightweight C++ library designed for creating stable hardware fingerprints without direct system API interaction complexity. It provides easy access to CPU information, SMBIOS firmware data, and physical storage device identifiers — everything needed to generate unique, persistent machine identifiers.
 
 ### Key Features
 
@@ -19,7 +19,7 @@
 - **Storage Enumeration** — List physical drives with serial numbers and bus types (SATA, NVMe, USB)
 - **Cryptographic Hashing** — Built-in SHA-256 fingerprint generation with customizable hash algorithms
 - **VM Detection** — Detect virtualized environments (VMware, VirtualBox, Hyper-V, etc.)
-- **Cross-Platform** — Windows and Linux support with platform-specific optimizations
+- **Windows Platform** — Full support for Windows 10+ with platform-specific optimizations
 - **Modern C++** — C++20 concepts, RAII-compliant memory management, zero-cost abstractions
 
 ## Use Cases
@@ -36,7 +36,7 @@
 
 - **C++20** compatible compiler (MSVC 19.28+, GCC 10+, Clang 11+)
 - **CMake** 3.10 or higher
-- **Windows 10+** or **Linux** (kernel 3.0+)
+- **Windows 10+** (currently only Windows platform is supported)
 
 ### Building
 
@@ -185,9 +185,11 @@ Captures extended information including physical storage drives.
 **Note:** May require administrator privileges on Windows to enumerate drives.
 
 #### `identy::list_drives()`
-Enumerates all physical storage devices without capturing CPU/SMBIOS.
+Enumerates all physical storage devices without capturing CPU/SMBIOS data.
 
-**Returns:** `std::vector<PhysicalDriveInfo>`
+**Returns:** `std::vector<PhysicalDriveInfo>` — Vector of physical drive information structures
+
+**Note:** May require administrator privileges on Windows to access drive information.
 
 ### Hashing Functions
 
@@ -221,10 +223,29 @@ Writes raw hash bytes to output stream.
 
 ### VM Detection
 
-#### `identy::assume_virtual(const Motherboard& mb)`
-Detects if the system is running in a virtual machine environment.
+#### `identy::vm::assume_virtual(const Motherboard& mb)`
+Detects if the system is running in a virtual machine environment using heuristic analysis.
 
-**Returns:** `bool` — `true` if VM detected
+**Returns:** `bool` — `true` if VM detected with "Probable" or higher confidence
+
+**Note:** This is a heuristic method that combines multiple detection signals. For detailed analysis including individual detection flags and confidence levels, use `identy::vm::analyze_full()`.
+
+#### `identy::vm::analyze_full(const Motherboard& mb)`
+Performs comprehensive VM detection and returns detailed analysis results.
+
+**Returns:** `HeuristicVerdict` — Structure containing detected VM indicators and confidence level
+
+**Example:**
+```cpp
+auto mb = identy::snap_motherboard();
+auto verdict = identy::vm::analyze_full(mb);
+
+if (verdict.is_virtual()) {
+    std::cout << "VM detected with confidence: "
+              << static_cast<int>(verdict.confidence) << std::endl;
+    std::cout << "Detected indicators: " << verdict.detections.size() << std::endl;
+}
+```
 
 ## Data Structures
 
@@ -244,9 +265,11 @@ SMBIOS firmware data:
 
 ### `identy::PhysicalDriveInfo`
 Physical storage device information:
-- `device_name` — System device path (`\\.\PhysicalDrive0`, `/dev/sda`)
-- `serial` — Drive serial number
-- `bus_type` — Connection type (`SATA`, `NMVe`, `USB`)
+- `device_name` — System device path (e.g., `\\.\PhysicalDrive0` on Windows)
+- `serial` — Drive serial number (manufacturer-assigned unique identifier)
+- `bus_type` — Connection type enum: `SATA`, `NVMe`, or `USB`
+
+**Note:** Drive enumeration is currently only supported on Windows. Serial numbers may be empty if not provided by the drive firmware or if access is denied.
 
 ### `identy::Motherboard`
 Basic hardware snapshot:
@@ -273,11 +296,11 @@ Extended hardware snapshot:
 - Uses `GetSystemFirmwareTable` API for SMBIOS access
 - Requires `advapi32.lib` linkage
 - Drive enumeration may need admin rights
+- Full CPUID support for CPU information extraction
+- Registry-based VM detection for Hyper-V and other hypervisors
 
 ### Linux
-- Reads SMBIOS from `/sys/firmware/dmi/tables/DMI`
-- Drive information from `/dev/` and `sysfs`
-- May require root for certain operations
+**Note:** Linux support is planned but not yet implemented. The library currently only supports Windows platforms.
 
 ## Security Considerations
 
@@ -296,10 +319,15 @@ Hardware fingerprinting should be used responsibly:
 
 ## Performance
 
-- **snap_motherboard()**: ~1-5ms (no disk I/O)
-- **snap_motherboard_ex()**: ~10-50ms (includes drive enumeration)
-- **hash()**: ~0.1ms (SHA-256 computation)
-- **Zero heap allocations** for basic operations (except `std::string` fields)
+Typical execution times on modern hardware:
+
+- **snap_motherboard()**: ~1-5ms (CPU CPUID + SMBIOS firmware table read)
+- **snap_motherboard_ex()**: ~10-50ms (includes physical drive enumeration via WMI/DeviceIoControl)
+- **hash()**: ~0.1ms (pure SHA-256 computation)
+- **vm::assume_virtual()**: ~0.5-2ms (heuristic analysis with minimal overhead)
+- **Zero heap allocations** for basic operations (except `std::string` fields and `std::vector` containers)
+
+**Note:** Drive enumeration time varies based on the number of installed storage devices and may require administrative privileges on Windows.
 
 ## Contributing
 

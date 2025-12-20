@@ -1,6 +1,7 @@
 #include "Identy_pch.hxx"
 
 #include "Identy_hwid.hxx"
+#include "Platform/Identy_platform_hwid.hxx"
 
 namespace
 {
@@ -18,6 +19,7 @@ constexpr identy::register_32 cpuleaf_ext_brand = 0x80000002;
 constexpr identy::register_32 cpuleaf_hypervisor = 0x40000000;
 constexpr identy::register_32 cpuleaf_extended_topology = 0x0000001F;
 constexpr identy::register_32 cpuleaf_extended_topology_legacy = 0x0000000B;
+constexpr identy::register_32 cpuleaf_ext_brand_test = 0x80000000;
 } // namespace
 
 namespace
@@ -30,7 +32,38 @@ constexpr identy::dword EDX = 3;
 
 namespace
 {
-void copy_byte(identy::register_32* from, identy::byte* to, std::ptrdiff_t index)
+void intrin_cpuid(int registers[4], int leaf)
+{
+#ifdef IDENTY_MSVC
+    __cpuid(registers, leaf);
+#elif defined(IDENTY_GNUC) || defined(IDENTY_CLANG)
+    unsigned int eax, ebx, ecx, edx;
+    __cpuid(leaf, eax, ebx, ecx, edx);
+    registers[0] = static_cast<int>(eax);
+    registers[1] = static_cast<int>(ebx);
+    registers[2] = static_cast<int>(ecx);
+    registers[3] = static_cast<int>(edx);
+#endif
+}
+
+void intrin_cpuidex(int registers[4], int leaf, int subleaf)
+{
+#ifdef IDENTY_MSVC
+    __cpuidex(registers, leaf, subleaf);
+#elif defined(IDENTY_GNUC) || defined(IDENTY_CLANG)
+    unsigned int eax, ebx, ecx, edx;
+    __cpuid_count(leaf, subleaf, eax, ebx, ecx, edx);
+    registers[0] = static_cast<int>(eax);
+    registers[1] = static_cast<int>(ebx);
+    registers[2] = static_cast<int>(ecx);
+    registers[3] = static_cast<int>(edx);
+#endif
+}
+} // namespace
+
+namespace
+{
+void copy_byte(const identy::register_32* from, identy::byte* to, std::ptrdiff_t index)
 {
     const identy::byte* byte_ptr = reinterpret_cast<const identy::byte*>(from);
     *to = byte_ptr[index];
@@ -39,46 +72,22 @@ void copy_byte(identy::register_32* from, identy::byte* to, std::ptrdiff_t index
 
 namespace
 {
-#ifdef IDENTY_WIN32
-identy::SMBIOS_Raw::Ptr get_smbios_win32()
-{
-    identy::dword size = GetSystemFirmwareTable('RSMB', 0, NULL, 0);
-    if(size == 0) {
-        return identy::SMBIOS_Raw::Ptr();
-    }
-
-    identy::SMBIOS_Raw::Ptr smbios_ptr;
-    smbios_ptr.allocate(size);
-
-    GetSystemFirmwareTable('RSMB', 0, smbios_ptr, static_cast<identy::dword>(smbios_ptr.bytes_length()));
-
-    return smbios_ptr;
-}
-
-#define get_smbios_impl get_smbios_win32
-#else
-identy::SMBIOS get_smbios_linux()
-{
-    // todo: open /sys/firmware/dmi/tables/DMI and read it into SMBIOS.data field
-
-    return identy::SMBIOS::Ptr();
-}
-
-#define get_smbios_impl get_smbios_linux
-#endif
-
 std::vector<std::uint8_t> get_smbios_uuid(identy::SMBIOS_Raw::Ptr& smbios)
 {
     identy::byte* smbios_begin = smbios->SMBIOS_table_data;
     identy::byte* smbios_end = smbios_begin + smbios->length;
 
     std::vector<std::uint8_t> buffer;
-    buffer.resize(smbios_end - smbios_begin);
+    buffer.reserve(identy::SMBIOS_uuid_length);
 
     while(smbios_begin < smbios_end) {
         auto header = reinterpret_cast<identy::SMBIOS_Header*>(smbios_begin);
 
         if(header->type == SMBIOS_type_system_information && header->length >= SMBIOS_system_information_header_length) {
+            if(smbios_begin + SMBIOS_uuid_offset + identy::SMBIOS_uuid_length > smbios_end) {
+                break;
+            }
+
             identy::byte* uuid = smbios_begin + SMBIOS_uuid_offset;
 
             for(std::size_t i { 0 }; i < identy::SMBIOS_uuid_length; ++i) {
@@ -110,7 +119,7 @@ identy::Cpu get_cpu_info()
 
     identy::register_32 cpu_info[4] = { -1 };
 
-    __cpuid(cpu_info, cpuleaf_vendorID);
+    intrin_cpuid(cpu_info, cpuleaf_vendorID);
 
     char vendor[13] = { 0 };
 
@@ -122,7 +131,7 @@ identy::Cpu get_cpu_info()
 
     identy::register_32 max_leaf = cpu_info[EAX];
 
-    __cpuid(cpu_info, cpuleaf_family);
+    intrin_cpuid(cpu_info, cpuleaf_family);
 
     std::memcpy(&cpu.version, &cpu_info[EAX], sizeof(identy::register_32));
 
@@ -138,23 +147,32 @@ identy::Cpu get_cpu_info()
     std::memcpy(&cpu.instruction_set.basic, &cpu_info[EDX], sizeof(identy::register_32));
     std::memcpy(&cpu.instruction_set.modern, &cpu_info[ECX], sizeof(identy::register_32));
 
-    __cpuidex(cpu_info, cpuleaf_ext_instructions, 0);
+    intrin_cpuidex(cpu_info, cpuleaf_ext_instructions, 0);
 
     std::memcpy(&cpu.instruction_set.extended_modern[0], &cpu_info[EBX], sizeof(identy::register_32));
     std::memcpy(&cpu.instruction_set.extended_modern[1], &cpu_info[ECX], sizeof(identy::register_32));
     std::memcpy(&cpu.instruction_set.extended_modern[2], &cpu_info[EDX], sizeof(identy::register_32));
 
-    char brand[49] = { 0 };
+    intrin_cpuid(cpu_info, cpuleaf_ext_brand_test);
+    auto max_extended_leaf = static_cast<unsigned int>(cpu_info[EAX]);
 
-    __cpuid(reinterpret_cast<identy::register_32*>(brand + 0), cpuleaf_ext_brand + 0);
-    __cpuid(reinterpret_cast<identy::register_32*>(brand + 16), cpuleaf_ext_brand + 1);
-    __cpuid(reinterpret_cast<identy::register_32*>(brand + 32), cpuleaf_ext_brand + 2);
+    if(max_extended_leaf >= static_cast<unsigned int>(cpuleaf_ext_brand_test) + 4) {
+        char brand[49] = { 0 };
 
-    cpu.extended_brand_string = std::string(brand);
+        intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 0), cpuleaf_ext_brand + 0);
+        intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 16), cpuleaf_ext_brand + 1);
+        intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 32), cpuleaf_ext_brand + 2);
+
+        cpu.extended_brand_string = std::string(brand);
+    }
+    else {
+        cpu.extended_brand_string = "unavailable";
+        cpu.too_old = true;
+    }
 
     if(cpu.hypervisor_bit) {
         char hyperv_sig[13] = { 0 };
-        __cpuid(cpu_info, cpuleaf_hypervisor);
+        intrin_cpuid(cpu_info, cpuleaf_hypervisor);
 
         identy::register_32 max_hypervisor_leaf = cpu_info[EAX];
 
@@ -182,7 +200,7 @@ identy::Cpu get_cpu_info()
         identy::register_32 level = 0;
 
         while(true) {
-            __cpuidex(cpu_info, leaf_to_use, level);
+            intrin_cpuidex(cpu_info, leaf_to_use, level);
 
             identy::byte level_type;
             copy_byte(&cpu_info[ECX], &level_type, 1);
@@ -201,7 +219,7 @@ identy::Cpu get_cpu_info()
         }
     }
     else if(max_leaf >= cpuleaf_family) {
-        __cpuid(cpu_info, cpuleaf_family);
+        intrin_cpuid(cpu_info, cpuleaf_family);
         identy::byte nb_proc;
         copy_byte(&cpu_info[EBX], &nb_proc, 2);
         cpu.logical_processors_count = static_cast<identy::register_32>(nb_proc);
@@ -213,109 +231,6 @@ identy::Cpu get_cpu_info()
     return cpu;
 }
 
-#ifdef IDENTY_WIN32
-std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_name)
-{
-    auto path = std::format(R"(\\.\{})", drive_name);
-
-    HANDLE h_device = CreateFileA(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, NULL);
-    if(h_device == INVALID_HANDLE_VALUE) {
-        return std::nullopt;
-    }
-
-    identy::PhysicalDriveInfo info;
-
-    STORAGE_PROPERTY_QUERY query;
-    ZeroMemory(&query, sizeof(query));
-
-    query.PropertyId = StorageDeviceProperty;
-    query.QueryType = PropertyStandardQuery;
-
-    identy::byte buffer[1024];
-    identy::dword bytes_returned = 0;
-
-    if(!DeviceIoControl(h_device, IOCTL_STORAGE_QUERY_PROPERTY, &query, sizeof(query), buffer, sizeof(buffer), &bytes_returned, NULL)) {
-        CloseHandle(h_device);
-        return std::nullopt;
-    }
-
-    STORAGE_DEVICE_DESCRIPTOR* desc = reinterpret_cast<STORAGE_DEVICE_DESCRIPTOR*>(buffer);
-
-    switch(desc->BusType) {
-        case BusTypeNvme:
-            info.bus_type = identy::PhysicalDriveInfo::NMVe;
-            break;
-
-        case BusTypeSata:
-            info.bus_type = identy::PhysicalDriveInfo::SATA;
-            break;
-
-        case BusTypeUsb:
-            info.bus_type = identy::PhysicalDriveInfo::USB;
-            break;
-    }
-
-    if(desc->SerialNumberOffset != 0 && desc->SerialNumberOffset < sizeof(buffer)) {
-        info.serial = std::string(reinterpret_cast<const char*>(buffer) + desc->SerialNumberOffset);
-    }
-
-    info.serial.erase(std::remove(info.serial.begin(), info.serial.end(), ' '), info.serial.end());
-
-    info.device_name = drive_name;
-
-    CloseHandle(h_device);
-
-    return info;
-}
-
-std::vector<identy::PhysicalDriveInfo> list_drives_win32()
-{
-    constexpr identy::dword buffer_size = 65536;
-    thread_local char buffer[buffer_size];
-
-    identy::dword count = QueryDosDeviceA(NULL, buffer, buffer_size);
-    if(count == 0) {
-        return {};
-    }
-
-    std::vector<std::string> drives;
-
-    char* current_info = buffer;
-    while(*current_info) {
-        std::string_view device_name(current_info);
-
-        if(device_name.starts_with("PhysicalDrive")) {
-            drives.emplace_back(device_name);
-        }
-
-        current_info += device_name.size() + 1;
-    }
-
-    std::vector<identy::PhysicalDriveInfo> drive_infos;
-    for(auto& drive_name : drives) {
-        auto result = get_drive_info(drive_name);
-        if(result.has_value()) {
-            drive_infos.push_back(std::move(result.value()));
-        }
-    }
-
-    return drive_infos;
-}
-
-#define list_drives_impl list_drives_win32
-#else
-std::vector<identy::PhysicalDriveInfo> list_drives_linux()
-{
-    // todo: list all physical drives using linux\posix API
-
-    std::vector<identy::PhysicalDriveInfo> drive_infos;
-
-    return drive_infos;
-}
-
-#define list_drives_impl list_drives_linux
-#endif
-
 } // namespace
 
 identy::Motherboard identy::snap_motherboard()
@@ -323,20 +238,15 @@ identy::Motherboard identy::snap_motherboard()
     Motherboard motherboard;
     motherboard.cpu = get_cpu_info();
 
-    auto smbios_raw = get_smbios_impl();
+    auto smbios_raw = platform::get_smbios();
+    if(smbios_raw == nullptr) {
+        return motherboard;
+    }
 
-#ifdef IDENTY_WIN32
-    motherboard.smbios.is_20_calling_used = smbios_raw->used_20_calling_method == 1;
     motherboard.smbios.major_version = smbios_raw->SMBIOS_major_version;
     motherboard.smbios.minor_version = smbios_raw->SMBIOS_minor_version;
+    motherboard.smbios.is_20_calling_used = smbios_raw->used_20_calling_method == 1;
     motherboard.smbios.dmi_version = smbios_raw->dmi_revision;
-#else
-    // todo: get from Linux system APIs
-    motherboard.smbios.is_20_calling_used = false;
-    motherboard.smbios.major_version = 255;
-    motherboard.smbios.minor_version = 255;
-    motherboard.smbios.dmi_version = 255;
-#endif
 
     motherboard.smbios.raw_tables_data.resize(smbios_raw->length);
     std::memcpy(motherboard.smbios.raw_tables_data.data(), smbios_raw->SMBIOS_table_data, smbios_raw->length);
@@ -363,5 +273,5 @@ identy::MotherboardEx identy::snap_motherboard_ex()
 
 std::vector<identy::PhysicalDriveInfo> identy::list_drives()
 {
-    return list_drives_impl();
+    return platform::list_drives();
 }

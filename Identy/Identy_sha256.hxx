@@ -1,3 +1,26 @@
+/**
+ * @file Identy_sha256.hxx
+ * @brief Internal SHA-256 cryptographic hash implementation
+ *
+ * Provides a self-contained implementation of the SHA-256 cryptographic hash
+ * algorithm as defined in FIPS 180-4. This implementation is used internally
+ * by Identy for generating hardware fingerprints.
+ *
+ * ## Implementation Details
+ *
+ * - **Algorithm:** SHA-256 (Secure Hash Algorithm 2, 256-bit variant)
+ * - **Block Size:** 512 bits (64 bytes)
+ * - **Digest Size:** 256 bits (32 bytes)
+ * - **Compliance:** FIPS 180-4 specification
+ * - **Performance:** Pure C++ implementation without hardware acceleration
+ *
+ * @note This is an internal implementation detail. Application code should use
+ *       the high-level hashing functions from identy::hs namespace instead.
+ *
+ * @see identy::hs::hash()
+ * @see Hash256
+ */
+
 #pragma once
 
 #ifndef UNC_IDENTY_SHA256_H
@@ -8,22 +31,113 @@
 
 namespace identy::hs::detail
 {
-/// Internal use.
+/**
+ * @brief Internal SHA-256 hash implementation class
+ *
+ * Implements the SHA-256 cryptographic hash algorithm with support for both
+ * one-shot hashing (static hash() method) and incremental hashing (update()
+ * method for streaming data).
+ *
+ * ## Usage Patterns
+ *
+ * **One-shot hashing:**
+ * ```cpp
+ * std::span<const byte> data = ...;
+ * Hash256 result = Sha256::hash(data);
+ * ```
+ *
+ * **Incremental hashing:**
+ * ```cpp
+ * Sha256 hasher;
+ * hasher.update(chunk1);
+ * hasher.update(chunk2);
+ * Hash256 result = hasher.finalize();
+ * ```
+ *
+ * @note This class is for internal library use. Public API should use
+ *       identy::hs::hash() template functions instead.
+ *
+ * @warning After calling finalize(), the hasher object is in finalized state
+ *          and must be reset() before reuse
+ */
 class Sha256 final
 {
 public:
+    /** @brief SHA-256 block size in bytes (512 bits) */
     static constexpr std::size_t block_size = 64;
+
+    /** @brief SHA-256 digest size in bytes (256 bits) */
     static constexpr std::size_t digest_size = 32;
 
+    /**
+     * @brief One-shot SHA-256 hash computation
+     *
+     * Computes the complete SHA-256 hash of the input data in a single
+     * operation. Convenient for hashing data that fits entirely in memory.
+     *
+     * @param data Span of bytes to hash
+     * @return Hash256 structure containing the computed 256-bit hash
+     *
+     * @note This is a convenience wrapper around the incremental API
+     */
     static Hash256 hash(std::span<const byte> data) noexcept;
 
+    /**
+     * @brief Default constructor initializing hasher to initial state
+     *
+     * Prepares the hasher for accepting data via update() calls.
+     */
     Sha256() noexcept;
 
+    /**
+     * @brief Updates hash state with additional data (span overload)
+     *
+     * Incrementally processes input data, updating the internal hash state.
+     * Can be called multiple times to hash data in chunks.
+     *
+     * @param data Span of bytes to add to the hash
+     *
+     * @note Can be called multiple times before finalize()
+     * @note Data is processed in 512-bit blocks internally
+     */
     void update(std::span<const byte> data) noexcept;
+
+    /**
+     * @brief Updates hash state with additional data (pointer overload)
+     *
+     * Incrementally processes input data, updating the internal hash state.
+     * Can be called multiple times to hash data in chunks.
+     *
+     * @param data Pointer to byte array to add to the hash
+     * @param len Length of the data in bytes
+     *
+     * @note Can be called multiple times before finalize()
+     * @note Data is processed in 512-bit blocks internally
+     */
     void update(const byte* data, std::size_t len) noexcept;
 
+    /**
+     * @brief Finalizes hash computation and returns result
+     *
+     * Completes the SHA-256 computation by applying padding and final
+     * transformations, then returns the computed hash value.
+     *
+     * @return Hash256 structure containing the computed 256-bit hash
+     *
+     * @warning After calling finalize(), the hasher enters finalized state
+     *          and cannot accept more data until reset() is called
+     *
+     * @note The result is available immediately and the hasher can be reset
+     *       for reuse with reset()
+     */
     [[nodiscard]] Hash256 finalize() noexcept;
 
+    /**
+     * @brief Resets hasher to initial state for reuse
+     *
+     * Clears all internal state and returns the hasher to initial condition,
+     * allowing it to be reused for computing a new hash.
+     */
     void reset() noexcept;
 
 private:

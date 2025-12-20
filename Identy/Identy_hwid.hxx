@@ -87,26 +87,11 @@ struct Cpu
     bool too_old { false };
 };
 
-#ifdef IDENTY_WIN32
-/**
- * @brief SMBIOS data structure for Windows platforms
- *
- * Platform-specific SMBIOS representation for Win32 systems obtained via
- * the GetSystemFirmwareTable Windows API function with 'RSMB' signature.
- * This structure contains the raw SMBIOS table data along with version
- * information and metadata provided by the Windows API.
- *
- * @warning This structure uses a flexible array member and must ONLY be
- *          operated through the ::Ptr handle (CStdHandle) to ensure proper
- *          memory management and size allocation.
- *
- * @note The actual size of SMBIOS_table_data is determined at runtime
- *       based on the length field.
- */
-struct SMBIOS_Win32
+#pragma pack(push, 1)
+struct SMBIOS_Raw
 {
     /** @brief Smart pointer handle type for safe memory management */
-    using Ptr = CStdHandle<SMBIOS_Win32>;
+    using Ptr = CStdHandle<SMBIOS_Raw>;
 
     /** @brief Flag indicating whether SMBIOS 2.0 calling method was used (1 = yes, 0 = no) */
     byte used_20_calling_method;
@@ -127,39 +112,8 @@ struct SMBIOS_Win32
     byte SMBIOS_table_data[1];
 };
 
-/** @brief Platform-specific alias for raw SMBIOS structure on Windows */
-using SMBIOS_Raw = SMBIOS_Win32;
-#else
-/**
- * @brief SMBIOS data structure for UNIX/Linux platforms
- *
- * Platform-specific SMBIOS representation for UNIX-like systems, typically
- * obtained by reading /sys/firmware/dmi/tables/DMI or /dev/mem.
- * This structure contains only the raw SMBIOS table data and its length,
- * without additional metadata headers.
- *
- * @warning This structure uses a flexible array member and must ONLY be
- *          operated through the ::Ptr handle (CStdHandle) to ensure proper
- *          memory management and size allocation.
- *
- * @note The actual size of SMBIOS_table_data is determined at runtime
- *       based on the length field.
- */
-struct SMBIOS_Linux
-{
-    /** @brief Smart pointer handle type for safe memory management */
-    using Ptr = CStdHandle<SMBIOS_Linux>;
-
-    /** @brief Total length of the SMBIOS table data in bytes */
-    dword length;
-
-    /** @brief Flexible array member containing the raw SMBIOS structure table data */
-    byte SMBIOS_table_data[1];
-};
-
-/** @brief Platform-specific alias for raw SMBIOS structure on UNIX/Linux */
-using SMBIOS_Raw = SMBIOS_Linux;
-#endif
+// Linux-specific SMBIOS structures (SMBIOS_EntryPoint32, SMBIOS_EntryPoint64, SMBIOS_Entry_Type)
+// have been moved to Platform/Identy_platform_hwid.hxx
 
 /**
  * @brief Standard SMBIOS structure header
@@ -174,7 +128,6 @@ using SMBIOS_Raw = SMBIOS_Linux;
  *
  * @see SMBIOS specification for complete structure definitions
  */
-#pragma pack(push, 1)
 struct SMBIOS_Header
 {
     /** @brief SMBIOS structure type identifier (e.g., 0=BIOS, 1=System, 2=Baseboard) */
@@ -255,7 +208,8 @@ struct PhysicalDriveInfo
     enum BusType {
         SATA, /**< Serial ATA interface */
         NMVe, /**< NVM Express (Non-Volatile Memory express) interface */
-        USB   /**< Universal Serial Bus external interface */
+        USB,  /**< Universal Serial Bus external interface */
+        Other
     } bus_type { SATA };
 
     /** @brief Drive device name for current session (.\\\\.\\PhysicalDriveN for Windows, /dev/ for Linux) */
