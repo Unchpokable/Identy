@@ -6,7 +6,17 @@
             "cppStandard": "c++20",
             "cStandard": "c17",
             "defines": [
-                "_WIN32"
+                "_WIN32",
+                "IDENTY_WIN32"
+            ]
+        },
+        {
+            "name": "libidenty_linux",
+            "cppStandard": "c++20",
+            "cStandard": "c17",
+            "defines": [
+                "_WIN32",
+                "IDENTY_LINUX"
             ]
         }
     ]

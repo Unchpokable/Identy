@@ -2,15 +2,13 @@
 
 #include "Identy_vm.hxx"
 
-#ifdef IDENTY_WIN32
-#include "iphlpapi.h"
-#endif
+#include "Platform/Identy_platform_vm.hxx"
 
 namespace
 {
 constexpr const char* microsoft_hyperv_sig = "Microsoft Hv";
 
-std::vector<std::string> known_hypervisor_signatures {
+static constexpr std::array known_hypervisor_signatures {
     "KVM",
     "KVMKVMKVM",
     "VMwareVMware",
@@ -22,7 +20,7 @@ std::vector<std::string> known_hypervisor_signatures {
     microsoft_hyperv_sig,
 };
 
-std::vector<std::string> known_vm_manufacturers {
+static constexpr std::array known_vm_manufacturers {
     "innotek GmbH",
     "Oracle",
     "VMware, Inc.",
@@ -32,13 +30,19 @@ std::vector<std::string> known_vm_manufacturers {
     "Parallels",
 };
 
-std::vector<std::string> known_vm_network_adapters {
-    "vmware", "vmxnet", "vmnet",    // VMware
-    "virtualbox", "vbox",           // VirtualBox
-    "hyper-v", "microsoft hyper-v", // Hyper-V
-    "virtio", "red hat virtio",     // KVM/QEMU
-    "xennet", "xen",                // Xen
-    "parallels",                    // Parallels
+static constexpr std::array known_vm_network_adapters {
+    "vmware",
+    "vmxnet",
+    "vmnet", // VMware
+    "virtualbox",
+    "vbox", // VirtualBox
+    "hyper-v",
+    "microsoft hyper-v", // Hyper-V
+    "virtio",
+    "red hat virtio", // KVM/QEMU
+    "xennet",
+    "xen",       // Xen
+    "parallels", // Parallels
 };
 } // namespace
 
@@ -50,18 +54,12 @@ constexpr std::ptrdiff_t SMBIOS_system_manufacturer_offset = 4;
 
 namespace
 {
-#ifdef IDENTY_WIN32
-void check_network_adapters_win32(identy::vm::HeuristicVerdict& verdict)
+void check_network_adapters(identy::vm::HeuristicVerdict& verdict)
 {
-    ULONG buffer_size = 0;
-    GetAdaptersInfo(nullptr, &buffer_size);
+    bool access_denied = false;
+    auto adapters = identy::platform::list_network_adapters(access_denied);
 
-    std::vector<identy::byte> buffer;
-    buffer.resize(buffer_size);
-
-    auto adapter_info = reinterpret_cast<PIP_ADAPTER_INFO>(buffer.data());
-
-    if(GetAdaptersInfo(adapter_info, &buffer_size) != NO_ERROR) {
+    if(access_denied) {
         verdict.detections.push_back(identy::vm::VMFlags::Platform_AccessToNetworkDevicesDenied);
         return;
     }
@@ -69,14 +67,16 @@ void check_network_adapters_win32(identy::vm::HeuristicVerdict& verdict)
     int virtual_adapters_count = 0;
     int total_adapters_count = 0;
 
-    for(auto adapter = adapter_info; adapter != nullptr; adapter = adapter->Next) {
-        std::string desc = adapter->Description;
-        std::string lowercase_desc = desc;
+    for(const auto& adapter : adapters) {
+        auto char_equal = [](char a, char b) {
+            return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+        };
 
-        std::ranges::transform(lowercase_desc, lowercase_desc.begin(), tolower);
+        auto desc = std::string_view(adapter.description);
 
-        auto is_virtual = std::ranges::any_of(known_vm_network_adapters, [lowercase_desc](const std::string& adapter_name) {
-            return lowercase_desc.find(adapter_name) != std::string::npos;
+        auto is_virtual = std::ranges::any_of(known_vm_network_adapters, [&](std::string_view key) {
+            auto it = std::search(desc.begin(), desc.end(), key.begin(), key.end(), char_equal);
+            return it != desc.end();
         });
 
         if(is_virtual) {
@@ -84,7 +84,7 @@ void check_network_adapters_win32(identy::vm::HeuristicVerdict& verdict)
             total_adapters_count++;
         }
         else {
-            if(adapter->Type != MIB_IF_TYPE_LOOPBACK && adapter->Type != IF_TYPE_TUNNEL) {
+            if(!adapter.is_loopback && !adapter.is_tunnel) {
                 total_adapters_count++;
             }
         }
@@ -94,20 +94,10 @@ void check_network_adapters_win32(identy::vm::HeuristicVerdict& verdict)
         verdict.detections.push_back(identy::vm::VMFlags::Platform_VirtualNetworkAdaptersPresent);
     }
 
-    if(virtual_adapters_count == total_adapters_count) {
+    if(virtual_adapters_count == total_adapters_count && total_adapters_count > 0) {
         verdict.detections.push_back(identy::vm::VMFlags::Platform_OnlyVirtualNetworkAdapters);
     }
 }
-
-#define check_network_adapters check_network_adapters_win32
-
-#else
-void check_network_adapters_linux(identy::vm::HeuristicVerdict& verdict)
-{
-}
-
-#define check_network_adapters check_network_adapters_linux
-#endif
 } // namespace
 
 namespace

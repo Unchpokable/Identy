@@ -4,6 +4,7 @@
 #define IDENTY_PRECOMPILED_H
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <concepts>
 #include <cstdint>
