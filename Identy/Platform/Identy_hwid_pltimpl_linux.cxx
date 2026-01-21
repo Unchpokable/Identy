@@ -21,37 +21,28 @@ identy::SMBIOS_Entry_Type get_smbios_entry_type(const identy::byte* data, std::s
     return identy::SMBIOS_Entry_Type::Unknown;
 }
 
-void get_smbios_versions(identy::SMBIOS_Raw::Ptr& smbios)
+void read_smbios_versions(identy::SMBIOS_RawData& result, const std::vector<identy::byte>& entry_point_buffer)
 {
-    std::ifstream file("/sys/firmware/dmi/tables/smbios_entry_point", std::ios::binary | std::ios::ate);
-
-    if(!file.is_open()) {
-        return;
-    }
-
-    auto size = file.tellg();
-
-    file.seekg(0);
-
-    std::vector<identy::byte> buffer;
-    buffer.resize(size);
-
-    auto type = get_smbios_entry_type(buffer.data(), size);
+    auto type = get_smbios_entry_type(entry_point_buffer.data(), entry_point_buffer.size());
 
     switch(type) {
         case identy::Entry_32bit: {
-            auto entry = reinterpret_cast<const identy::SMBIOS_EntryPoint32*>(buffer.data());
-
-            smbios->SMBIOS_major_version = entry->major_version;
-            smbios->SMBIOS_minor_version = entry->minor_version;
+            if(entry_point_buffer.size() >= sizeof(identy::SMBIOS_EntryPoint32)) {
+                identy::SMBIOS_EntryPoint32 entry;
+                std::memcpy(&entry, entry_point_buffer.data(), sizeof(entry));
+                result.major_version = entry.major_version;
+                result.minor_version = entry.minor_version;
+            }
             break;
         }
 
         case identy::Entry_64bit: {
-            auto entry = reinterpret_cast<const identy::SMBIOS_EntryPoint64*>(buffer.data());
-
-            smbios->SMBIOS_major_version = entry->major_version;
-            smbios->SMBIOS_minor_version = entry->minor_version;
+            if(entry_point_buffer.size() >= sizeof(identy::SMBIOS_EntryPoint64)) {
+                identy::SMBIOS_EntryPoint64 entry;
+                std::memcpy(&entry, entry_point_buffer.data(), sizeof(entry));
+                result.major_version = entry.major_version;
+                result.minor_version = entry.minor_version;
+            }
             break;
         }
 
@@ -60,7 +51,7 @@ void get_smbios_versions(identy::SMBIOS_Raw::Ptr& smbios)
     }
 }
 
-identy::SMBIOS_Raw::Ptr get_smbios_linux()
+identy::SMBIOS_RawData get_smbios_linux()
 {
     std::ifstream file("/sys/firmware/dmi/tables/DMI", std::ios::binary | std::ios::ate);
 
@@ -71,16 +62,24 @@ identy::SMBIOS_Raw::Ptr get_smbios_linux()
     auto size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    identy::SMBIOS_Raw::Ptr smbios_ptr;
-    smbios_ptr.allocate(sizeof(identy::SMBIOS_Raw) + size);
+    identy::SMBIOS_RawData result;
+    result.table_data.resize(static_cast<std::size_t>(size));
 
-    file.read(smbios_ptr.data() + offsetof(identy::SMBIOS_Raw, SMBIOS_table_data), size);
+    file.read(reinterpret_cast<char*>(result.table_data.data()), size);
 
-    smbios_ptr->length = size;
+    // Read entry point for version info
+    std::ifstream entry_file("/sys/firmware/dmi/tables/smbios_entry_point", std::ios::binary | std::ios::ate);
+    if(entry_file.is_open()) {
+        auto entry_size = entry_file.tellg();
+        entry_file.seekg(0);
 
-    get_smbios_versions(smbios_ptr);
+        std::vector<identy::byte> entry_buffer(static_cast<std::size_t>(entry_size));
+        entry_file.read(reinterpret_cast<char*>(entry_buffer.data()), entry_size);
 
-    return smbios_ptr;
+        read_smbios_versions(result, entry_buffer);
+    }
+
+    return result;
 }
 
 std::string read_sysfs_value(const std::filesystem::path& path)
@@ -160,7 +159,7 @@ std::vector<identy::PhysicalDriveInfo> list_drives_linux()
 namespace identy::platform
 {
 
-SMBIOS_Raw::Ptr get_smbios()
+SMBIOS_RawData get_smbios()
 {
     return get_smbios_linux();
 }

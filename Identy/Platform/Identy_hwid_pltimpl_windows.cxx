@@ -18,62 +18,97 @@ constexpr STORAGE_PROPERTY_ID StorageAdapterProtocolSpecificProperty = static_ca
 namespace
 {
 
-identy::SMBIOS_Raw::Ptr get_smbios_win32()
+// Offsets within Windows RSMB firmware table header
+constexpr std::size_t RSMB_used_20_offset = 0;
+constexpr std::size_t RSMB_major_version_offset = 1;
+constexpr std::size_t RSMB_minor_version_offset = 2;
+constexpr std::size_t RSMB_dmi_revision_offset = 3;
+constexpr std::size_t RSMB_length_offset = 4;
+constexpr std::size_t RSMB_table_data_offset = 8;
+
+identy::SMBIOS_RawData get_smbios_win32()
 {
     identy::dword size = GetSystemFirmwareTable('RSMB', 0, nullptr, 0);
     if(size == 0) {
         return {};
     }
 
-    identy::SMBIOS_Raw::Ptr smbios_ptr;
-    smbios_ptr.allocate(size);
+    std::vector<identy::byte> buffer(size);
+    GetSystemFirmwareTable('RSMB', 0, buffer.data(), size);
 
-    GetSystemFirmwareTable('RSMB', 0, smbios_ptr, static_cast<identy::dword>(smbios_ptr.bytes_length()));
+    identy::SMBIOS_RawData result;
 
-    return smbios_ptr;
+    if(buffer.size() >= RSMB_table_data_offset) {
+        result.used_20_calling_method = buffer[RSMB_used_20_offset];
+        result.major_version = buffer[RSMB_major_version_offset];
+        result.minor_version = buffer[RSMB_minor_version_offset];
+        result.dmi_revision = buffer[RSMB_dmi_revision_offset];
+
+        identy::dword table_length = 0;
+        std::memcpy(&table_length, buffer.data() + RSMB_length_offset, sizeof(table_length));
+
+        if(RSMB_table_data_offset + table_length <= buffer.size()) {
+            result.table_data.assign(
+                buffer.begin() + RSMB_table_data_offset, buffer.begin() + RSMB_table_data_offset + table_length);
+        }
+    }
+
+    return result;
 }
 
 std::string get_nvme_serial(HANDLE h_device)
 {
-    auto buffer_size = sizeof(STORAGE_PROPERTY_QUERY) + sizeof(identy::nvme::StorageProtocolDataDescriptor)
-        + sizeof(identy::nvme::NvmeIdentifyControllerData);
+    // Build query structure on stack (small, safe)
+    STORAGE_PROPERTY_QUERY query = {};
+    query.PropertyId = identy::StorageAdapterProtocolSpecificProperty;
+    query.QueryType = PropertyStandardQuery;
 
-    std::vector<identy::byte> buffer;
-    buffer.resize(buffer_size);
+    identy::nvme::StorageProtocolSpecificData protocol_data = {};
+    protocol_data.ProtocolType = ProtocolTypeNvme;
+    protocol_data.DataType = identy::nvme::NVMeDataTypeIdentify;
+    protocol_data.ProtocolDataRequestValue = identy::nvme::CNS_CONTROLLER;
+    protocol_data.ProtocolDataRequestSubValue = 0;
+    protocol_data.ProtocolDataOffset = sizeof(identy::nvme::StorageProtocolSpecificData);
+    protocol_data.ProtocolDataLength = sizeof(identy::nvme::NvmeIdentifyControllerData);
 
-    auto query = reinterpret_cast<STORAGE_PROPERTY_QUERY*>(buffer.data());
-    auto protocol_data = reinterpret_cast<identy::nvme::StorageProtocolSpecificData*>(query->AdditionalParameters);
+    // Build input buffer: query + protocol_data
+    constexpr auto input_size = sizeof(STORAGE_PROPERTY_QUERY) + sizeof(identy::nvme::StorageProtocolSpecificData);
+    std::vector<identy::byte> input_buffer(input_size);
+    std::memcpy(input_buffer.data(), &query, sizeof(query));
+    std::memcpy(input_buffer.data() + offsetof(STORAGE_PROPERTY_QUERY, AdditionalParameters), &protocol_data, sizeof(protocol_data));
 
-    query->PropertyId = identy::StorageAdapterProtocolSpecificProperty;
-    query->QueryType = PropertyStandardQuery;
-
-    protocol_data->ProtocolType = ProtocolTypeNvme;
-    protocol_data->DataType = identy::nvme::NVMeDataTypeIdentify;
-    protocol_data->ProtocolDataRequestValue = identy::nvme::CNS_CONTROLLER;
-    protocol_data->ProtocolDataRequestSubValue = 0;
-    protocol_data->ProtocolDataOffset = sizeof(identy::nvme::StorageProtocolSpecificData);
-    protocol_data->ProtocolDataLength = sizeof(identy::nvme::NvmeIdentifyControllerData);
+    // Output buffer for descriptor + NVMe data (4KB+ on heap)
+    constexpr auto output_size = sizeof(identy::nvme::StorageProtocolDataDescriptor) + sizeof(identy::nvme::NvmeIdentifyControllerData);
+    std::vector<identy::byte> output_buffer(output_size);
 
     identy::dword bytes_returned = 0;
-    auto result = DeviceIoControl(h_device, IOCTL_STORAGE_QUERY_PROPERTY, buffer.data(), static_cast<identy::dword>(buffer.size()),
-        buffer.data(), static_cast<identy::dword>(buffer.size()), &bytes_returned, nullptr);
+    auto result = DeviceIoControl(h_device, IOCTL_STORAGE_QUERY_PROPERTY, input_buffer.data(),
+        static_cast<identy::dword>(input_buffer.size()), output_buffer.data(), static_cast<identy::dword>(output_buffer.size()),
+        &bytes_returned, nullptr);
 
     if(!result) {
         return {};
     }
 
-    auto descriptor = reinterpret_cast<identy::nvme::StorageProtocolDataDescriptor*>(buffer.data());
+    // Parse descriptor header via memcpy
+    identy::nvme::StorageProtocolDataDescriptor descriptor = {};
+    std::memcpy(&descriptor, output_buffer.data(), sizeof(descriptor));
 
-    if(descriptor->ProtocolSpecificData.ProtocolDataOffset + sizeof(identy::nvme::NvmeIdentifyControllerData) > buffer.size()) {
+    auto data_offset = sizeof(identy::nvme::StorageProtocolDataDescriptor) - sizeof(identy::nvme::StorageProtocolSpecificData)
+        + descriptor.ProtocolSpecificData.ProtocolDataOffset;
+
+    if(data_offset + sizeof(identy::nvme::NvmeIdentifyControllerData) > output_buffer.size()) {
         return {};
     }
 
-    auto nvme_data = reinterpret_cast<identy::nvme::NvmeIdentifyControllerData*>(
-        reinterpret_cast<identy::byte*>(&descriptor->ProtocolSpecificData) + descriptor->ProtocolSpecificData.ProtocolDataOffset);
+    // Extract only the serial number field (20 bytes) - no need to copy entire 4KB structure
+    constexpr std::size_t sn_offset_in_nvme_data = offsetof(identy::nvme::NvmeIdentifyControllerData, SN);
+    constexpr std::size_t sn_size = sizeof(identy::nvme::NvmeIdentifyControllerData::SN);
 
-    auto serial = std::string(reinterpret_cast<const char*>(nvme_data->SN), sizeof(nvme_data->SN));
+    char serial_buffer[sn_size + 1] = {};
+    std::memcpy(serial_buffer, output_buffer.data() + data_offset + sn_offset_in_nvme_data, sn_size);
 
-    return serial;
+    return std::string(serial_buffer, sn_size);
 }
 
 std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_name)
@@ -87,23 +122,24 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
 
     identy::PhysicalDriveInfo info;
 
-    STORAGE_PROPERTY_QUERY query;
-    ZeroMemory(&query, sizeof(query));
-
+    STORAGE_PROPERTY_QUERY query = {};
     query.PropertyId = StorageDeviceProperty;
     query.QueryType = PropertyStandardQuery;
 
-    identy::byte buffer[1024];
+    std::vector<identy::byte> buffer(1024);
     identy::dword bytes_returned = 0;
 
-    if(!DeviceIoControl(h_device, IOCTL_STORAGE_QUERY_PROPERTY, &query, sizeof(query), buffer, sizeof(buffer), &bytes_returned, NULL)) {
+    if(!DeviceIoControl(
+           h_device, IOCTL_STORAGE_QUERY_PROPERTY, &query, sizeof(query), buffer.data(), static_cast<identy::dword>(buffer.size()), &bytes_returned, nullptr)) {
         CloseHandle(h_device);
         return std::nullopt;
     }
 
-    STORAGE_DEVICE_DESCRIPTOR* desc = reinterpret_cast<STORAGE_DEVICE_DESCRIPTOR*>(buffer);
+    // Parse STORAGE_DEVICE_DESCRIPTOR header via memcpy to avoid strict aliasing
+    STORAGE_DEVICE_DESCRIPTOR desc = {};
+    std::memcpy(&desc, buffer.data(), std::min(sizeof(desc), buffer.size()));
 
-    switch(desc->BusType) {
+    switch(desc.BusType) {
         case BusTypeNvme:
             info.bus_type = identy::PhysicalDriveInfo::NMVe;
             break;
@@ -124,8 +160,10 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
     if(info.bus_type == identy::PhysicalDriveInfo::NMVe) {
         info.serial = get_nvme_serial(h_device);
     }
-    else if(desc->SerialNumberOffset != 0 && desc->SerialNumberOffset < sizeof(buffer)) {
-        info.serial = std::string(reinterpret_cast<const char*>(buffer) + desc->SerialNumberOffset);
+    else if(desc.SerialNumberOffset != 0 && desc.SerialNumberOffset < buffer.size()) {
+        // Serial number is null-terminated string at offset
+        const char* serial_ptr = reinterpret_cast<const char*>(buffer.data() + desc.SerialNumberOffset);
+        info.serial = std::string(serial_ptr);
     }
 
     info.serial = std::string(identy::strings::trim_whitespace(info.serial));
@@ -140,8 +178,7 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
 std::vector<identy::PhysicalDriveInfo> list_drives_win32()
 {
     constexpr identy::dword buffer_size = 65536;
-    identy::CStdHandle<char> buffer;
-    buffer.allocate(buffer_size);
+    std::vector<char> buffer(buffer_size);
 
     identy::dword count = QueryDosDeviceA(nullptr, buffer.data(), buffer_size);
     if(count == 0) {
@@ -150,7 +187,7 @@ std::vector<identy::PhysicalDriveInfo> list_drives_win32()
 
     std::vector<std::string> drives;
 
-    char* current_info = buffer.data();
+    const char* current_info = buffer.data();
     while(*current_info) {
         std::string_view device_name(current_info);
 
@@ -177,7 +214,7 @@ std::vector<identy::PhysicalDriveInfo> list_drives_win32()
 namespace identy::platform
 {
 
-SMBIOS_Raw::Ptr get_smbios()
+SMBIOS_RawData get_smbios()
 {
     return get_smbios_win32();
 }

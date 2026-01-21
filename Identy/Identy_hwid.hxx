@@ -10,7 +10,6 @@
 
 #include "Identy_global.h"
 #include "Identy_platform.hxx"
-#include "Identy_resource_handle.hxx"
 #include "Identy_types.hxx"
 
 namespace identy
@@ -93,33 +92,6 @@ struct Cpu
 };
 
 #pragma pack(push, 1)
-struct SMBIOS_Raw
-{
-    /** @brief Smart pointer handle type for safe memory management */
-    using Ptr = CStdHandle<SMBIOS_Raw>;
-
-    /** @brief Flag indicating whether SMBIOS 2.0 calling method was used (1 = yes, 0 = no) */
-    byte used_20_calling_method;
-
-    /** @brief SMBIOS specification major version number */
-    byte SMBIOS_major_version;
-
-    /** @brief SMBIOS specification minor version number */
-    byte SMBIOS_minor_version;
-
-    /** @brief Desktop Management Interface (DMI) revision number */
-    byte dmi_revision;
-
-    /** @brief Total length of the SMBIOS table data in bytes */
-    dword length;
-
-    /** @brief Flexible array member containing the raw SMBIOS structure table data */
-    byte SMBIOS_table_data[1];
-};
-
-// Linux-specific SMBIOS structures (SMBIOS_EntryPoint32, SMBIOS_EntryPoint64, SMBIOS_Entry_Type)
-// have been moved to Platform/Identy_platform_hwid.hxx
-
 /**
  * @brief Standard SMBIOS structure header
  *

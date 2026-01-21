@@ -51,6 +51,27 @@ enum SMBIOS_Entry_Type {
 };
 #endif
 
+/**
+ * @brief Raw SMBIOS data returned from platform layer
+ *
+ * Contains version information and raw table data in a safe std::vector.
+ * This replaces the old flexible-array-member based SMBIOS_Raw structure
+ * for safer memory management.
+ */
+struct SMBIOS_RawData
+{
+    byte used_20_calling_method { 0 };
+    byte major_version { 0 };
+    byte minor_version { 0 };
+    byte dmi_revision { 0 };
+    std::vector<byte> table_data;
+
+    [[nodiscard]] bool empty() const noexcept
+    {
+        return table_data.empty();
+    }
+};
+
 } // namespace identy
 
 namespace identy::platform
@@ -58,9 +79,9 @@ namespace identy::platform
 
 /**
  * @brief Platform-specific SMBIOS retrieval
- * @return Smart pointer to raw SMBIOS data, or nullptr on failure
+ * @return SMBIOS data structure, empty if retrieval failed
  */
-SMBIOS_Raw::Ptr get_smbios();
+SMBIOS_RawData get_smbios();
 
 /**
  * @brief Platform-specific drive enumeration

@@ -72,42 +72,42 @@ void copy_byte(const identy::register_32* from, identy::byte* to, std::ptrdiff_t
 
 namespace
 {
-std::vector<std::uint8_t> get_smbios_uuid(identy::SMBIOS_Raw::Ptr& smbios)
+std::vector<std::uint8_t> get_smbios_uuid(const std::vector<identy::byte>& table_data)
 {
-    identy::byte* smbios_begin = smbios->SMBIOS_table_data;
-    identy::byte* smbios_end = smbios_begin + smbios->length;
+    if(table_data.empty()) {
+        return {};
+    }
 
-    std::vector<std::uint8_t> buffer;
-    buffer.reserve(identy::SMBIOS_uuid_length);
+    std::size_t offset = 0;
 
-    while(smbios_begin < smbios_end) {
-        auto header = reinterpret_cast<identy::SMBIOS_Header*>(smbios_begin);
+    while(offset + sizeof(identy::SMBIOS_Header) <= table_data.size()) {
+        // Read header via memcpy to avoid strict aliasing violation
+        identy::SMBIOS_Header header;
+        std::memcpy(&header, table_data.data() + offset, sizeof(header));
 
-        if(header->type == SMBIOS_type_system_information && header->length >= SMBIOS_system_information_header_length) {
-            if(smbios_begin + SMBIOS_uuid_offset + identy::SMBIOS_uuid_length > smbios_end) {
+        if(header.type == SMBIOS_type_system_information && header.length >= SMBIOS_system_information_header_length) {
+            std::size_t uuid_start = offset + SMBIOS_uuid_offset;
+            if(uuid_start + identy::SMBIOS_uuid_length > table_data.size()) {
                 break;
             }
 
-            identy::byte* uuid = smbios_begin + SMBIOS_uuid_offset;
-
-            for(std::size_t i { 0 }; i < identy::SMBIOS_uuid_length; ++i) {
-                buffer.emplace_back(uuid[i]);
-            }
-
-            return buffer;
+            return std::vector<std::uint8_t>(
+                table_data.begin() + uuid_start, table_data.begin() + uuid_start + identy::SMBIOS_uuid_length);
         }
 
-        identy::byte* next = smbios_begin + header->length;
+        // Move past formatted area
+        std::size_t next = offset + header.length;
 
-        while(next + 1 < smbios_end && (*next != 0 || *(next + 1) != 0)) {
+        // Skip string section (terminated by double null)
+        while(next + 1 < table_data.size() && (table_data[next] != 0 || table_data[next + 1] != 0)) {
             next++;
         }
 
-        if(next + 2 > smbios_end) {
+        if(next + 2 > table_data.size()) {
             break;
         }
 
-        smbios_begin = next + 2;
+        offset = next + 2;
     }
 
     return {};
@@ -157,11 +157,15 @@ identy::Cpu get_cpu_info()
     auto max_extended_leaf = static_cast<unsigned int>(cpu_info[EAX]);
 
     if(max_extended_leaf >= static_cast<unsigned int>(cpuleaf_ext_brand_test) + 4) {
-        char brand[49] = { 0 };
+        // Use register array and memcpy to avoid strict aliasing violation
+        identy::register_32 brand_regs[12] = { 0 };
 
-        intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 0), cpuleaf_ext_brand + 0);
-        intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 16), cpuleaf_ext_brand + 1);
-        intrin_cpuid(reinterpret_cast<identy::register_32*>(brand + 32), cpuleaf_ext_brand + 2);
+        intrin_cpuid(&brand_regs[0], cpuleaf_ext_brand + 0);
+        intrin_cpuid(&brand_regs[4], cpuleaf_ext_brand + 1);
+        intrin_cpuid(&brand_regs[8], cpuleaf_ext_brand + 2);
+
+        char brand[49] = { 0 };
+        std::memcpy(brand, brand_regs, 48);
 
         cpu.extended_brand_string = std::string(brand);
     }
@@ -239,19 +243,18 @@ identy::Motherboard identy::snap_motherboard()
     motherboard.cpu = get_cpu_info();
 
     auto smbios_raw = platform::get_smbios();
-    if(smbios_raw == nullptr) {
+    if(smbios_raw.empty()) {
         return motherboard;
     }
 
-    motherboard.smbios.major_version = smbios_raw->SMBIOS_major_version;
-    motherboard.smbios.minor_version = smbios_raw->SMBIOS_minor_version;
-    motherboard.smbios.is_20_calling_used = smbios_raw->used_20_calling_method == 1;
-    motherboard.smbios.dmi_version = smbios_raw->dmi_revision;
+    motherboard.smbios.major_version = smbios_raw.major_version;
+    motherboard.smbios.minor_version = smbios_raw.minor_version;
+    motherboard.smbios.is_20_calling_used = smbios_raw.used_20_calling_method == 1;
+    motherboard.smbios.dmi_version = smbios_raw.dmi_revision;
 
-    motherboard.smbios.raw_tables_data.resize(smbios_raw->length);
-    std::memcpy(motherboard.smbios.raw_tables_data.data(), smbios_raw->SMBIOS_table_data, smbios_raw->length);
+    motherboard.smbios.raw_tables_data = std::move(smbios_raw.table_data);
 
-    auto uuid = get_smbios_uuid(smbios_raw);
+    auto uuid = get_smbios_uuid(motherboard.smbios.raw_tables_data);
     std::memcpy(motherboard.smbios.uuid, uuid.data(), std::min(uuid.size(), sizeof(motherboard.smbios.uuid)));
 
     return motherboard;
