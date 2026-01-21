@@ -3,6 +3,8 @@
 #ifndef UNC_IDENTY_HASH_BASE_H
 #define UNC_IDENTY_HASH_BASE_H
 
+#include <cstddef>
+
 #include "Identy_types.hxx"
 
 namespace identy::hs

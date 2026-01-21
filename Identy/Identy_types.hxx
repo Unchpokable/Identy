@@ -3,6 +3,8 @@
 #ifndef UNC_IDENTY_TYPES_H
 #define UNC_IDENTY_TYPES_H
 
+#include <cstdint>
+
 #ifdef IDENTY_WIN32
 #define NOMINMAX
 #include <Windows.h>

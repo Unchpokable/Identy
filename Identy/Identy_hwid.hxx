@@ -3,6 +3,11 @@
 #ifndef UNC_IDENTY_HWID_H
 #define UNC_IDENTY_HWID_H
 
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
 #include "Identy_global.h"
 #include "Identy_platform.hxx"
 #include "Identy_resource_handle.hxx"

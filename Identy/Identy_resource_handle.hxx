@@ -24,7 +24,9 @@
 #ifndef UNC_IDENTY_RESOURCE_HANDLE_H
 #define UNC_IDENTY_RESOURCE_HANDLE_H
 
+#include <cstddef>
 #include <cstdlib>
+#include <type_traits>
 
 namespace identy
 {

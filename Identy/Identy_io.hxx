@@ -22,6 +22,8 @@
 #ifndef UNC_IDENTY_IO_H
 #define UNC_IDENTY_IO_H
 
+#include <ostream>
+
 #include "Identy_hash.hxx"
 
 namespace identy

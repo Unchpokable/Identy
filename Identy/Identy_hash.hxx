@@ -3,6 +3,9 @@
 #ifndef UNC_IDENTY_HASH_H
 #define UNC_IDENTY_HASH_H
 
+#include <cstring>
+#include <type_traits>
+
 #include "Identy_hash_base.hxx"
 #include "Identy_hwid.hxx"
 

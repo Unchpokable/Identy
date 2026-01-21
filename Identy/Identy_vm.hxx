@@ -30,6 +30,9 @@
 #ifndef UNC_IDENTY_VM_H
 #define UNC_IDENTY_VM_H
 
+#include <type_traits>
+#include <vector>
+
 #include "Identy_hwid.hxx"
 
 namespace identy::vm

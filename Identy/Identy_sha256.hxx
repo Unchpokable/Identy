@@ -26,6 +26,10 @@
 #ifndef UNC_IDENTY_SHA256_H
 #define UNC_IDENTY_SHA256_H
 
+#include <cstddef>
+#include <cstdint>
+#include <span>
+
 #include "Identy_hash_base.hxx"
 #include "Identy_types.hxx"
 
