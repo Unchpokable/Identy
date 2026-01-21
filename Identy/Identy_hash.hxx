@@ -250,7 +250,8 @@ auto hash(const Motherboard& mb) -> Hash::Type;
  * @warning The drives vector in the input MotherboardEx structure MUST be sorted
  *          by serial numbers (or maintain any other stable ordering) before calling
  *          this function. Unsorted drive lists will produce inconsistent hashes
- *          across multiple invocations even on the same hardware.
+ *          across multiple invocations even on the same hardware. By default identy::snap_motherboard_ex() sorts drives list by serial
+ * numbers
  *
  * @note This hash includes physical drive information and will change if storage
  *       devices are added, removed, or replaced
@@ -265,9 +266,6 @@ auto hash(const Motherboard& mb) -> Hash::Type;
  * Example usage:
  * @code
  * auto mb = identy::snap_motherboard_ex();
- * // Sort drives to ensure stable hashing
- * std::sort(mb.drives.begin(), mb.drives.end(),
- *           [](auto& a, auto& b) { return a.serial < b.serial; });
  * auto fingerprint = identy::hs::hash(mb);
  * // fingerprint.buffer now contains 32-byte SHA-256 hash
  * @endcode
