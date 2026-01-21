@@ -17,6 +17,21 @@ constexpr STORAGE_PROPERTY_ID StorageAdapterProtocolSpecificProperty = static_ca
 
 namespace
 {
+struct WindowsHandleDeleter
+{
+    void operator()(HANDLE h) const
+    {
+        if(h && h != INVALID_HANDLE_VALUE) {
+            CloseHandle(h);
+        }
+    }
+};
+
+using ScopedHandle = std::unique_ptr<void, WindowsHandleDeleter>;
+} // namespace
+
+namespace
+{
 
 // Offsets within Windows RSMB firmware table header
 constexpr std::size_t RSMB_used_20_offset = 0;
@@ -48,8 +63,7 @@ identy::SMBIOS_RawData get_smbios_win32()
         std::memcpy(&table_length, buffer.data() + RSMB_length_offset, sizeof(table_length));
 
         if(RSMB_table_data_offset + table_length <= buffer.size()) {
-            result.table_data.assign(
-                buffer.begin() + RSMB_table_data_offset, buffer.begin() + RSMB_table_data_offset + table_length);
+            result.table_data.assign(buffer.begin() + RSMB_table_data_offset, buffer.begin() + RSMB_table_data_offset + table_length);
         }
     }
 
@@ -115,10 +129,12 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
 {
     auto path = std::format(R"(\\.\{})", drive_name);
 
-    HANDLE h_device = CreateFileA(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
-    if(h_device == INVALID_HANDLE_VALUE) {
+    HANDLE raw_handle = CreateFileA(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if(raw_handle == INVALID_HANDLE_VALUE) {
         return std::nullopt;
     }
+
+    ScopedHandle h_device(raw_handle);
 
     identy::PhysicalDriveInfo info;
 
@@ -129,9 +145,8 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
     std::vector<identy::byte> buffer(1024);
     identy::dword bytes_returned = 0;
 
-    if(!DeviceIoControl(
-           h_device, IOCTL_STORAGE_QUERY_PROPERTY, &query, sizeof(query), buffer.data(), static_cast<identy::dword>(buffer.size()), &bytes_returned, nullptr)) {
-        CloseHandle(h_device);
+    if(!DeviceIoControl(h_device.get(), IOCTL_STORAGE_QUERY_PROPERTY, &query, sizeof(query), buffer.data(),
+           static_cast<identy::dword>(buffer.size()), &bytes_returned, nullptr)) {
         return std::nullopt;
     }
 
@@ -158,7 +173,7 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
     }
 
     if(info.bus_type == identy::PhysicalDriveInfo::NMVe) {
-        info.serial = get_nvme_serial(h_device);
+        info.serial = get_nvme_serial(h_device.get());
     }
     else if(desc.SerialNumberOffset != 0 && desc.SerialNumberOffset < buffer.size()) {
         // Serial number is null-terminated string at offset
@@ -169,8 +184,6 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
     info.serial = std::string(identy::strings::trim_whitespace(info.serial));
 
     info.device_name = drive_name;
-
-    CloseHandle(h_device);
 
     return info;
 }

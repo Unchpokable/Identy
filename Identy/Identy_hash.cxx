@@ -6,101 +6,111 @@
 namespace
 {
 /**
- * @brief Serializes Motherboard structure into a byte buffer for hashing
- *
- * @param board The motherboard information to serialize
- * @return std::vector<identy::byte> Serialized data ready for hashing
+ * @brief Helper to update hash with raw bytes of a trivially copyable value
  */
-std::vector<identy::byte> serialize_motherboard(const identy::Motherboard& board)
+template<typename T>
+void hash_value(identy::hs::detail::Sha256& ctx, const T& value) noexcept
 {
-    std::vector<identy::byte> buffer;
-
-    // Reserve approximate size to avoid reallocations
-    buffer.reserve(1024);
-
-    // Serialize CPU vendor string
-    buffer.insert(buffer.end(), board.cpu.vendor.begin(), board.cpu.vendor.end());
-
-    // Serialize CPU version (4 bytes)
-    const auto* version_ptr = reinterpret_cast<const identy::byte*>(&board.cpu.version);
-    buffer.insert(buffer.end(), version_ptr, version_ptr + sizeof(board.cpu.version));
-
-    // Serialize CPU characteristics
-    buffer.push_back(board.cpu.brand_index);
-    buffer.push_back(board.cpu.clflush_line_size);
-
-    const auto* logic_proc_count_ptr = reinterpret_cast<const identy::byte*>(&board.cpu.logical_processors_count);
-    buffer.insert(buffer.end(), logic_proc_count_ptr, logic_proc_count_ptr + sizeof(board.cpu.logical_processors_count));
-
-    // Serialize extended brand string
-    buffer.insert(buffer.end(), board.cpu.extended_brand_string.begin(), board.cpu.extended_brand_string.end());
-
-    // Serialize instruction sets
-    const auto* basic_ptr = reinterpret_cast<const identy::byte*>(&board.cpu.instruction_set.basic);
-    buffer.insert(buffer.end(), basic_ptr, basic_ptr + sizeof(board.cpu.instruction_set.basic));
-
-    const auto* modern_ptr = reinterpret_cast<const identy::byte*>(&board.cpu.instruction_set.modern);
-    buffer.insert(buffer.end(), modern_ptr, modern_ptr + sizeof(board.cpu.instruction_set.modern));
-
-    const auto* extended_ptr = reinterpret_cast<const identy::byte*>(&board.cpu.instruction_set.extended_modern);
-    buffer.insert(buffer.end(), extended_ptr, extended_ptr + sizeof(board.cpu.instruction_set.extended_modern));
-
-    // Serialize SMBIOS data
-    buffer.push_back(board.smbios.is_20_calling_used ? 1 : 0);
-    buffer.push_back(board.smbios.major_version);
-    buffer.push_back(board.smbios.minor_version);
-    buffer.push_back(board.smbios.dmi_version);
-
-    // Serialize UUID
-    buffer.insert(buffer.end(), board.smbios.uuid, board.smbios.uuid + identy::SMBIOS_uuid_length);
-
-    return buffer;
+    static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
+    ctx.update(reinterpret_cast<const identy::byte*>(&value), sizeof(T));
 }
 
 /**
- * @brief Serializes MotherboardEx structure into a byte buffer for hashing
- *
- * @param board The extended motherboard information to serialize
- * @return std::vector<identy::byte> Serialized data ready for hashing
+ * @brief Helper to update hash with string data
  */
-std::vector<identy::byte> serialize_motherboard_ex(const identy::MotherboardEx& board)
+void hash_string(identy::hs::detail::Sha256& ctx, const std::string& str) noexcept
 {
-    // Start with base motherboard serialization
+    ctx.update(reinterpret_cast<const identy::byte*>(str.data()), str.size());
+}
+
+/**
+ * @brief Helper to update hash with raw byte array
+ */
+void hash_bytes(identy::hs::detail::Sha256& ctx, const identy::byte* data, std::size_t size) noexcept
+{
+    ctx.update(data, size);
+}
+
+/**
+ * @brief Updates hash context with Motherboard data
+ *
+ * @param ctx The SHA256 context to update
+ * @param board The motherboard information to hash
+ */
+void hash_motherboard(identy::hs::detail::Sha256& ctx, const identy::Motherboard& board) noexcept
+{
+    // Hash CPU vendor string
+    hash_string(ctx, board.cpu.vendor);
+
+    // Hash CPU version (4 bytes)
+    hash_value(ctx, board.cpu.version);
+
+    // Hash CPU characteristics
+    hash_value(ctx, board.cpu.brand_index);
+    hash_value(ctx, board.cpu.clflush_line_size);
+    hash_value(ctx, board.cpu.logical_processors_count);
+
+    // Hash extended brand string
+    hash_string(ctx, board.cpu.extended_brand_string);
+
+    // Hash instruction sets
+    hash_value(ctx, board.cpu.instruction_set.basic);
+    hash_value(ctx, board.cpu.instruction_set.modern);
+    hash_value(ctx, board.cpu.instruction_set.extended_modern);
+
+    // Hash SMBIOS data
+    identy::byte is_20_flag = board.smbios.is_20_calling_used ? 1 : 0;
+    hash_value(ctx, is_20_flag);
+    hash_value(ctx, board.smbios.major_version);
+    hash_value(ctx, board.smbios.minor_version);
+    hash_value(ctx, board.smbios.dmi_version);
+
+    // Hash UUID
+    hash_bytes(ctx, board.smbios.uuid, identy::SMBIOS_uuid_length);
+}
+
+/**
+ * @brief Updates hash context with MotherboardEx data
+ *
+ * @param ctx The SHA256 context to update
+ * @param board The extended motherboard information to hash
+ */
+void hash_motherboard_ex(identy::hs::detail::Sha256& ctx, const identy::MotherboardEx& board) noexcept
+{
+    // Hash base motherboard data
     identy::Motherboard base_board;
     base_board.cpu = board.cpu;
     base_board.smbios = board.smbios;
+    hash_motherboard(ctx, base_board);
 
-    std::vector<identy::byte> buffer = serialize_motherboard(base_board);
-
-    // Add drive information
+    // Hash drive information
     for(const auto& drive : board.drives) {
         if(drive.bus_type == identy::PhysicalDriveInfo::USB || drive.bus_type == identy::PhysicalDriveInfo::Other) {
             continue;
         }
 
-        // Serialize bus type
-        const auto* bus_type_ptr = reinterpret_cast<const identy::byte*>(&drive.bus_type);
-        buffer.insert(buffer.end(), bus_type_ptr, bus_type_ptr + sizeof(drive.bus_type));
+        // Hash bus type
+        hash_value(ctx, drive.bus_type);
 
-        // Serialize device name
-        buffer.insert(buffer.end(), drive.device_name.begin(), drive.device_name.end());
+        // Hash device name
+        hash_string(ctx, drive.device_name);
 
-        // Serialize serial number
-        buffer.insert(buffer.end(), drive.serial.begin(), drive.serial.end());
+        // Hash serial number
+        hash_string(ctx, drive.serial);
     }
-
-    return buffer;
 }
 } // anonymous namespace
 
 identy::hs::Hash256 identy::hs::detail::default_hash(const Motherboard& board)
 {
-    auto serialized_data = serialize_motherboard(board);
-    return Sha256::hash(serialized_data);
+    Sha256 ctx;
+    hash_motherboard(ctx, board);
+    return ctx.finalize();
 }
 
 identy::hs::Hash256 identy::hs::detail::default_hash_ex(const MotherboardEx& board)
 {
-    auto serialized_data = serialize_motherboard_ex(board);
-    return Sha256::hash(serialized_data);
+    Sha256 ctx;
+    hash_motherboard_ex(ctx, board);
+    return ctx.finalize();
 }
