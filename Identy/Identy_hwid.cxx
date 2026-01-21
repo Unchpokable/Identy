@@ -268,6 +268,10 @@ identy::MotherboardEx identy::snap_motherboard_ex()
 
     motherboard.drives = list_drives();
 
+    std::ranges::sort(motherboard.drives, [](const PhysicalDriveInfo& a, const PhysicalDriveInfo& b) {
+        return a.serial < b.serial;
+    });
+
     return motherboard;
 }
 
