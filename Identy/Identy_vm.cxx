@@ -44,12 +44,57 @@ static constexpr std::array known_vm_network_adapters {
     "xen",       // Xen
     "parallels", // Parallels
 };
+
+static constexpr std::array known_vm_drives_products {
+    "VBOX",
+    "VMWARE",
+    "QEMU",
+    "VIRTUAL",
+    "XEN",
+    "KVM",
+    "RED HAT",
+    "VIRTIO",
+    "MSFT",
+    "MICROSOFT VIRTUAL",
+};
+
+static constexpr std::array suspiciuos_buses {
+    identy::PhysicalDriveInfo::SAS,
+    identy::PhysicalDriveInfo::Scsi,
+    identy::PhysicalDriveInfo::ATA,
+};
 } // namespace
 
 namespace
 {
 constexpr std::uint32_t SMBIOS_type_system_manufacturer = 1;
 constexpr std::ptrdiff_t SMBIOS_system_manufacturer_offset = 4;
+} // namespace
+
+namespace
+{
+constexpr char ctolower(char c)
+{
+    return (c >= 'A' && c <= 'Z') ? c + ('a' - 'A') : c;
+}
+
+constexpr bool char_equal_icase(char a, char b) noexcept
+{
+    return ctolower(static_cast<unsigned char>(a)) == ctolower(static_cast<unsigned char>(b));
+}
+
+constexpr bool contains_icase(std::string_view string, std::string_view substring) noexcept
+{
+    if(substring.empty()) {
+        return true;
+    }
+    if(substring.size() > string.size()) {
+        return false;
+    }
+
+    auto it = std::search(string.begin(), string.end(), substring.begin(), substring.end(), char_equal_icase);
+    return it != string.end();
+}
 } // namespace
 
 namespace
@@ -68,15 +113,10 @@ void check_network_adapters(identy::vm::HeuristicVerdict& verdict)
     int total_adapters_count = 0;
 
     for(const auto& adapter : adapters) {
-        auto char_equal = [](char a, char b) {
-            return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
-        };
+        std::string_view desc { adapter.description };
 
-        auto desc = std::string_view(adapter.description);
-
-        auto is_virtual = std::ranges::any_of(known_vm_network_adapters, [&](std::string_view key) {
-            auto it = std::search(desc.begin(), desc.end(), key.begin(), key.end(), char_equal);
-            return it != desc.end();
+        auto is_virtual = std::ranges::any_of(known_vm_network_adapters, [desc](std::string_view key) {
+            return contains_icase(desc, key);
         });
 
         if(is_virtual) {
@@ -181,7 +221,6 @@ bool is_hvci(const identy::Cpu& cpu, const identy::SMBIOS& smbios)
 void check_smbios(const identy::SMBIOS& smbios, identy::vm::HeuristicVerdict& verdict)
 {
     auto manufacturer = get_smbios_manufacturer(smbios);
-
     auto is_known_manufacturer = std::ranges::any_of(known_vm_manufacturers, [manufacturer](const std::string& man) {
         return manufacturer.find(man) != std::string_view::npos;
     });
@@ -197,6 +236,32 @@ void check_smbios(const identy::SMBIOS& smbios, identy::vm::HeuristicVerdict& ve
         // whole UUID is zeroed - VM
         verdict.detections.push_back(identy::vm::VMFlags::SMBIOS_SuspiciousUUID);
         verdict.detections.push_back(identy::vm::VMFlags::SMBIOS_UUIDTotallyZeroed);
+    }
+}
+
+void check_drive(const identy::PhysicalDriveInfo& drive, identy::vm::HeuristicVerdict& verdict, int& product_id_known_vm_count)
+{
+    auto full_model_name = drive.vendor_id + " " + drive.product_id;
+
+    if(std::ranges::any_of(known_vm_drives_products, [&full_model_name](std::string_view product) {
+           return contains_icase(full_model_name, product);
+       })) {
+        verdict.detections.push_back(identy::vm::VMFlags::Storage_ProductIdKnownVM);
+        ++product_id_known_vm_count;
+    }
+
+    if(drive.bus_type == identy::PhysicalDriveInfo::Virtual) {
+        verdict.detections.push_back(identy::vm::VMFlags::Storage_BusTypeIsVirtual);
+    }
+
+    if(drive.serial.empty() || drive.serial.find_first_not_of(drive.serial[0]) == std::string_view::npos) {
+        verdict.detections.push_back(identy::vm::VMFlags::Storage_SuspiciousSerial);
+    }
+
+    if(std::ranges::any_of(suspiciuos_buses, [&drive](const identy::PhysicalDriveInfo::BusType& bus) {
+           return drive.bus_type == bus;
+       })) {
+        verdict.detections.push_back(identy::vm::VMFlags::Storage_BusTypeUncommon);
     }
 }
 } // namespace
@@ -235,18 +300,23 @@ constexpr identy::vm::detail::FlagStrength identy::vm::detail::get_flag_strength
     switch(flag) {
         case VMFlags::Platform_HyperVIsolation:
         case VMFlags::Platform_VirtualNetworkAdaptersPresent:
-        case VMFlags::SMBIOS_SuspiciousManufacturer:
             return FlagStrength::Weak;
 
         case VMFlags::SMBIOS_SuspiciousUUID:
         case VMFlags::Platform_OnlyVirtualNetworkAdapters:
+        case VMFlags::Storage_BusTypeUncommon:
             return FlagStrength::Medium;
 
         case VMFlags::Cpu_Hypervisor_bit:
         case VMFlags::Cpu_Hypervisor_signature:
+        case VMFlags::Storage_BusTypeIsVirtual:
+        case VMFlags::Storage_ProductIdKnownVM:
+        case VMFlags::SMBIOS_SuspiciousManufacturer:
             return FlagStrength::Strong;
 
         case VMFlags::SMBIOS_UUIDTotallyZeroed:
+        case VMFlags::Storage_AllDrivesBusesVirtual:
+        case VMFlags::Storage_AllDrivesVendorProductKnownVM:
             return FlagStrength::Critical;
 
         case VMFlags::Storage_SuspiciousSerial:
@@ -313,7 +383,22 @@ identy::vm::HeuristicVerdict identy::vm::DefaultHeuristicEx::operator()(const Mo
 {
     auto verdict = check_mb_common(mb);
 
-    // todo: analyze disks
+    int product_vm_count {};
+    for(auto& disk : mb.drives) {
+        check_drive(disk, verdict, product_vm_count);
+    }
+
+    auto virtual_buses = std::ranges::count_if(mb.drives, [](const identy::PhysicalDriveInfo& drive) {
+        return drive.bus_type == identy::PhysicalDriveInfo::Virtual;
+    });
+
+    if(!mb.drives.empty() && virtual_buses == mb.drives.size()) {
+        verdict.detections.push_back(identy::vm::VMFlags::Storage_AllDrivesBusesVirtual);
+    }
+
+    if(!mb.drives.empty() && product_vm_count == mb.drives.size()) {
+        verdict.detections.push_back(identy::vm::VMFlags::Storage_AllDrivesVendorProductKnownVM);
+    }
 
     verdict.confidence = detail::calculate_confidence(verdict.detections);
 

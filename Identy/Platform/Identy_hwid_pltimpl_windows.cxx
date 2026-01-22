@@ -167,6 +167,22 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
             info.bus_type = identy::PhysicalDriveInfo::USB;
             break;
 
+        case BusTypeVirtual:
+            info.bus_type = identy::PhysicalDriveInfo::Virtual;
+            break;
+
+        case BusTypeAta:
+            info.bus_type = identy::PhysicalDriveInfo::ATA;
+            break;
+
+        case BusTypeScsi:
+            info.bus_type = identy::PhysicalDriveInfo::Scsi;
+            break;
+
+        case BusTypeSas:
+            info.bus_type = identy::PhysicalDriveInfo::SAS;
+            break;
+
         default:
             info.bus_type = identy::PhysicalDriveInfo::Other;
             break;
@@ -179,6 +195,13 @@ std::optional<identy::PhysicalDriveInfo> get_drive_info(std::string_view drive_n
         // Serial number is null-terminated string at offset
         const char* serial_ptr = reinterpret_cast<const char*>(buffer.data() + desc.SerialNumberOffset);
         info.serial = std::string(serial_ptr);
+    }
+
+    if(desc.VendorIdOffset != 0 && desc.VendorIdOffset < buffer.size()) {
+        info.vendor_id = std::string(reinterpret_cast<const char*>(buffer.data() + desc.VendorIdOffset));
+    }
+    if(desc.ProductIdOffset != 0 && desc.ProductIdOffset < buffer.size()) {
+        info.product_id = std::string(reinterpret_cast<const char*>(buffer.data() + desc.ProductIdOffset));
     }
 
     info.serial = std::string(identy::strings::trim_whitespace(info.serial));

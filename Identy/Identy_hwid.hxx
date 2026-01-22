@@ -183,9 +183,15 @@ struct PhysicalDriveInfo
      * @brief Storage device bus connection type enumeration
      */
     enum BusType {
-        SATA, /**< Serial ATA interface */
-        NMVe, /**< NVM Express (Non-Volatile Memory express) interface */
-        USB,  /**< Universal Serial Bus external interface */
+        SATA,    /**< Serial ATA interface */
+        NMVe,    /**< NVM Express (Non-Volatile Memory express) interface */
+        USB,     /**< Universal Serial Bus external interface */
+        Virtual, /**< Virtual Storage Bus */
+
+        // Dinosaur or enterprise buses
+        Scsi, /**< Old parallel SCSI bus */
+        ATA,  /**< PATA (IDE) */
+        SAS,  /** Enterprise server bus, Serial Attached SCSI */
         Other
     } bus_type { SATA };
 
@@ -194,6 +200,15 @@ struct PhysicalDriveInfo
 
     /** @brief Drive serial number string for unique identification */
     std::string serial;
+
+    /** @brief Human-readable device model ID */
+    std::string model_id;
+
+    /** @brief Human-readable device vendor ID */
+    std::string vendor_id;
+
+    /** @brief Human-readable device product ID */
+    std::string product_id;
 };
 
 /**
@@ -242,8 +257,6 @@ namespace identy
  *
  * @return Motherboard structure containing CPU and SMBIOS data
  *
- * @throws noexcept This function does not throw exceptions
- *
  * @note This function typically does not require elevated privileges
  * @note Platform-specific: Uses CPUID instruction for CPU data and
  *       GetSystemFirmwareTable on Windows or /sys/firmware/dmi on Linux
@@ -264,7 +277,7 @@ IDENTY_EXPORT Motherboard snap_motherboard();
  *
  * @return MotherboardEx structure containing CPU, SMBIOS, and drive information
  *
- * @throws noexcept This function does not throw exceptions
+ * @note This function is noexcept and does not throw exceptions
  *
  * @warning On Windows systems, enumerating physical drives may require
  *          administrative privileges. If insufficient permissions are available,

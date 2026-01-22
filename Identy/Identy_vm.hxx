@@ -51,6 +51,11 @@ enum class VMFlags {
     SMBIOS_SuspiciousUUID,                  ///< UUID of motherboard SMBIOS is suspicious and can be spoofed or virtual
     SMBIOS_UUIDTotallyZeroed,               ///< UUID of motherboard is completely zeroed
     Storage_SuspiciousSerial,               ///< Serial number of any drive looks like virtual device
+    Storage_BusTypeIsVirtual,               ///< Bus type of drive is BusTypeVirtual
+    Storage_AllDrivesBusesVirtual,          ///< All connected drives has virtual bus type
+    Storage_BusTypeUncommon,                ///< Drive connected via uncommon bus type which is not commonly used in physical hardware
+    Storage_ProductIdKnownVM,               ///< Drive product ID is known VM manufacturer
+    Storage_AllDrivesVendorProductKnownVM,  ///< All connected drives has vendor or product ID as known VM manufacturers
     Platform_WindowsRegistry,               ///< for Windows platforms - detected registry records pointing to VM
     Platform_LinuxDevices,                  ///< for Linux platforms - some devices looks lite it's a virtual devices
     Platform_VirtualNetworkAdaptersPresent, ///< Detected virtual network adapter
@@ -152,8 +157,9 @@ struct DefaultHeuristic
 /**
  * @brief Default heuristic functor for extended motherboard analysis
  *
- * Analyzes CPU, SMBIOS, and storage device data to detect VM indicators
- * with additional drive serial number checking.
+ * Analyzes CPU, SMBIOS, and network adapter data to detect VM indicators.
+ * Currently performs the same analysis as DefaultHeuristic; drive serial
+ * number checking is reserved for future implementation.
  */
 struct DefaultHeuristicEx
 {
@@ -218,14 +224,17 @@ bool assume_virtual(const Motherboard& mb);
 /**
  * @brief Checks if extended motherboard data indicates a virtual machine
  *
- * Performs comprehensive heuristic analysis of CPU, SMBIOS, and storage
- * device data to determine if the system is running in a virtualized
- * environment. Returns a simple boolean verdict based on confidence threshold.
+ * Performs heuristic analysis of CPU, SMBIOS, and network adapter data
+ * to determine if the system is running in a virtualized environment.
+ * Returns a simple boolean verdict based on confidence threshold.
  *
  * @tparam Heuristic Heuristic functor type (default: DefaultHeuristicEx)
  *
  * @param mb MotherboardEx structure with CPU, SMBIOS, and drive information
  * @return true if confidence is Probable or DefinitelyVM, false otherwise
+ *
+ * @note Currently performs the same analysis as the Motherboard overload;
+ *       storage device analysis is reserved for future implementation
  *
  * @note This is a convenience wrapper around analyze_full() that returns
  *       only the boolean verdict. Use analyze_full() to access detailed
@@ -261,15 +270,17 @@ HeuristicVerdict analyze_full(const Motherboard& mb);
 /**
  * @brief Performs full VM detection analysis on extended motherboard data
  *
- * Executes comprehensive heuristic analysis including storage device checks
- * and returns detailed results with all detected indicators and confidence
- * scoring. Use this function when you need to understand which specific VM
- * indicators were found.
+ * Executes comprehensive heuristic analysis and returns detailed results
+ * with all detected indicators and confidence scoring. Use this function
+ * when you need to understand which specific VM indicators were found.
  *
  * @tparam Heuristic Heuristic functor type (default: DefaultHeuristicEx)
  *
  * @param mb MotherboardEx structure with CPU, SMBIOS, and drive information
  * @return HeuristicVerdict with detected flags and confidence level
+ *
+ * @note Currently performs the same analysis as the Motherboard overload;
+ *       storage device analysis is reserved for future implementation
  *
  * @note The returned verdict includes the complete list of detected VM
  *       indicators, allowing for custom confidence thresholds or logging.

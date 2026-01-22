@@ -48,6 +48,9 @@ Hash256 default_hash(const Motherboard& board);
  *          or maintain stable ordering to ensure consistent hash generation
  *          across multiple invocations
  *
+ * @note Drives with bus type USB or Other are excluded from hash computation
+ *       to ensure stability (removable devices shouldn't affect the fingerprint)
+ *
  * @note This is an internal implementation detail. Use identy::hs::hash()
  *       template function for public API access
  *
@@ -118,6 +121,8 @@ struct DefaultHash final : public IHash<Hash256>
  *
  * @warning Input MotherboardEx structure must have drives sorted in a stable order
  *          (typically by serial number) to ensure consistent hash generation
+ *
+ * @note Drives with bus type USB or Other are excluded from hash computation
  *
  * @note This is a stateless functor with trivial construction/destruction,
  *       optimized for compile-time instantiation
@@ -250,11 +255,14 @@ auto hash(const Motherboard& mb) -> Hash::Type;
  * @warning The drives vector in the input MotherboardEx structure MUST be sorted
  *          by serial numbers (or maintain any other stable ordering) before calling
  *          this function. Unsorted drive lists will produce inconsistent hashes
- *          across multiple invocations even on the same hardware. By default identy::snap_motherboard_ex() sorts drives list by serial
- * numbers
+ *          across multiple invocations even on the same hardware. By default
+ *          identy::snap_motherboard_ex() sorts drives list by serial numbers
  *
- * @note This hash includes physical drive information and will change if storage
- *       devices are added, removed, or replaced
+ * @note Drives with bus type USB or Other are excluded from hash computation
+ *       to ensure stability (removable devices shouldn't affect the fingerprint)
+ *
+ * @note This hash includes physical drive information (SATA/NVMe only) and will
+ *       change if internal storage devices are added, removed, or replaced
  *
  * @note The hash is deterministic and will produce identical output for
  *       identical hardware configurations with stable drive ordering

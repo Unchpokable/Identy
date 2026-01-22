@@ -26,7 +26,7 @@ namespace identy::hs
 template<std::size_t BuffSize>
 struct Hash
 {
-    static_assert(BuffSize % 2 == 0, "Buffer size should be a power of 2!");
+    static_assert(BuffSize % 2 == 0, "Buffer size should be even!");
 
     /** @brief Fixed-size byte array containing the hash value */
     byte buffer[BuffSize];
