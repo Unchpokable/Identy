@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
-[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://github.com/Unchpokable/Identy)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg)](https://github.com/Unchpokable/Identy)
 
 ## Overview
 
@@ -14,12 +14,13 @@
 
 ### Key Features
 
-- **CPU Identification** — Extract vendor, model, instruction sets (SSE, AVX, etc.), and processor metadata via CPUID
-- **SMBIOS Access** — Read motherboard firmware tables including system UUID and hardware identifiers
-- **Storage Enumeration** — List physical drives with serial numbers and bus types (SATA, NVMe, USB)
-- **Cryptographic Hashing** — Built-in SHA-256 fingerprint generation with customizable hash algorithms
-- **VM Detection** — Detect virtualized environments (VMware, VirtualBox, Hyper-V, etc.)
-- **Windows Platform** — Full support for Windows 10+ with platform-specific optimizations
+- **CPU Identification** — Extract vendor, model, instruction sets (SSE, AVX, etc.), hypervisor presence, and processor metadata via CPUID
+- **SMBIOS Access** — Read motherboard firmware tables including system UUID, version info, and raw firmware data
+- **Storage Enumeration** — List physical drives with serial numbers, vendor/product IDs, and bus types (SATA, NVMe, USB, Virtual, SCSI, SAS, ATA)
+- **Cryptographic Hashing** — Built-in SHA-256 fingerprint generation with template-based customizable hash algorithms
+- **VM Detection** — Multi-factor heuristic detection of virtualized environments (VMware, VirtualBox, Hyper-V, QEMU, KVM, Xen, etc.) with confidence scoring
+- **Network Adapter Analysis** — Detect virtual network adapters as part of VM detection heuristics
+- **Cross-Platform** — Windows 10+ (full support), Linux (partial support)
 - **Modern C++** — C++20 concepts, RAII-compliant memory management, zero-cost abstractions
 
 ## Use Cases
@@ -36,7 +37,7 @@
 
 - **C++20** compatible compiler (MSVC 19.28+, GCC 10+, Clang 11+)
 - **CMake** 3.10 or higher
-- **Windows 10+** (currently only Windows platform is supported)
+- **Windows 10+** (full support) or **Linux** (partial support)
 
 ### Building
 
@@ -89,15 +90,11 @@ int main() {
 
 ```cpp
 #include <Identy/Identy.h>
-#include <algorithm>
 
 int main() {
     // Capture extended information including physical drives
+    // Drives are automatically sorted by serial number
     auto mb = identy::snap_motherboard_ex();
-
-    // Sort drives for consistent hashing
-    std::sort(mb.drives.begin(), mb.drives.end(),
-              [](auto& a, auto& b) { return a.serial < b.serial; });
 
     // Generate comprehensive fingerprint
     auto fingerprint = identy::hs::hash(mb);
@@ -105,7 +102,8 @@ int main() {
     // Print drive information
     for (const auto& drive : mb.drives) {
         std::cout << "Drive: " << drive.device_name
-                  << " | Serial: " << drive.serial << std::endl;
+                  << " | Serial: " << drive.serial
+                  << " | Vendor: " << drive.vendor_id << std::endl;
     }
 
     return 0;
@@ -119,7 +117,12 @@ auto mb = identy::snap_motherboard();
 
 std::cout << "CPU Vendor: " << mb.cpu.vendor << std::endl;
 std::cout << "Brand: " << mb.cpu.extended_brand_string << std::endl;
-std::cout << "Logical Cores: " << (int)mb.cpu.logical_processors_count << std::endl;
+std::cout << "Logical Cores: " << mb.cpu.logical_processors_count << std::endl;
+
+// Check for hypervisor presence
+if (mb.cpu.hypervisor_bit) {
+    std::cout << "Hypervisor: " << mb.cpu.hypervisor_signature << std::endl;
+}
 
 // Check for specific instruction set support
 bool has_avx = mb.cpu.instruction_set.modern & (1 << 28);  // AVX bit
@@ -131,7 +134,7 @@ std::cout << "AVX Support: " << (has_avx ? "Yes" : "No") << std::endl;
 ```cpp
 auto mb = identy::snap_motherboard();
 
-if (identy::assume_virtual(mb)) {
+if (identy::vm::assume_virtual(mb)) {
     std::cout << "Running in virtual environment" << std::endl;
 } else {
     std::cout << "Running on physical hardware" << std::endl;
@@ -193,47 +196,103 @@ Enumerates all physical storage devices without capturing CPU/SMBIOS data.
 
 ### Hashing Functions
 
-#### `identy::hs::hash(const Motherboard& mb)`
-Generates SHA-256 fingerprint from basic motherboard data.
+#### `identy::hs::hash<Hash>(const Motherboard& mb)`
+Generates cryptographic fingerprint from basic motherboard data.
 
-**Returns:** `Hash256` (32-byte array)
+**Template Parameter:** `Hash` — Hash function type satisfying `IdentyHashFn` concept (default: `DefaultHash` producing SHA-256)
 
-#### `identy::hs::hash(const MotherboardEx& mb)`
-Generates SHA-256 fingerprint including storage device information.
+**Returns:** `Hash::Type` (default: `Hash256`, 32-byte array)
 
-**Returns:** `Hash256` (32-byte array)
+#### `identy::hs::hash<Hash>(const MotherboardEx& mb)`
+Generates cryptographic fingerprint including storage device information.
 
-**Warning:** Drives must be sorted before hashing for consistent results.
+**Template Parameter:** `Hash` — Hash function type satisfying `IdentyHashExFn` concept (default: `DefaultHashEx` producing SHA-256)
 
-#### `identy::hs::compare(Hash lhs, Hash rhs)`
-Compares two hash values using constant-time comparison.
+**Returns:** `Hash::Type` (default: `Hash256`, 32-byte array)
+
+**Note:** Drives with bus type `USB` or `Other` are excluded from hash computation for stability. The `snap_motherboard_ex()` function automatically sorts drives by serial number.
+
+#### `identy::hs::compare<Hash>(Hash&& lhs, Hash&& rhs)`
+Compares two hash values.
 
 **Returns:** `0` if equal, non-zero otherwise
 
 ### I/O Functions
 
 #### `identy::io::write_text(std::ostream& stream, const Motherboard& mb)`
+#### `identy::io::write_text(std::ostream& stream, const MotherboardEx& mb)`
 Writes human-readable hardware information to output stream.
 
 #### `identy::io::write_binary(std::ostream& stream, const Motherboard& mb)`
+#### `identy::io::write_binary(std::ostream& stream, const MotherboardEx& mb)`
 Writes compact binary representation of hardware data.
 
-#### `identy::io::write_hash(std::ostream& stream, Hash&& hash)`
-Writes raw hash bytes to output stream.
+**Note:** Stream must be opened in binary mode (`std::ios::binary`).
+
+#### `identy::io::write_hash<Hash>(std::ostream& stream, const Motherboard& mb)`
+#### `identy::io::write_hash<Hash>(std::ostream& stream, const MotherboardEx& mb)`
+Computes hash and writes raw bytes to output stream.
+
+#### `identy::io::write_hash<Hash>(std::ostream& stream, Hash&& hash)`
+Writes pre-computed raw hash bytes to output stream.
 
 ### VM Detection
 
-#### `identy::vm::assume_virtual(const Motherboard& mb)`
+#### `identy::vm::assume_virtual<Heuristic>(const Motherboard& mb)`
+#### `identy::vm::assume_virtual<Heuristic>(const MotherboardEx& mb)`
 Detects if the system is running in a virtual machine environment using heuristic analysis.
+
+**Template Parameter:** `Heuristic` — Custom heuristic functor (default: `DefaultHeuristic` or `DefaultHeuristicEx`)
 
 **Returns:** `bool` — `true` if VM detected with "Probable" or higher confidence
 
 **Note:** This is a heuristic method that combines multiple detection signals. For detailed analysis including individual detection flags and confidence levels, use `identy::vm::analyze_full()`.
 
-#### `identy::vm::analyze_full(const Motherboard& mb)`
+#### `identy::vm::analyze_full<Heuristic>(const Motherboard& mb)`
+#### `identy::vm::analyze_full<Heuristic>(const MotherboardEx& mb)`
 Performs comprehensive VM detection and returns detailed analysis results.
 
+**Template Parameter:** `Heuristic` — Custom heuristic functor (default: `DefaultHeuristic` or `DefaultHeuristicEx`)
+
 **Returns:** `HeuristicVerdict` — Structure containing detected VM indicators and confidence level
+
+#### `identy::vm::HeuristicVerdict`
+Result structure from VM analysis:
+- `detections` — Vector of `VMFlags` that were detected
+- `confidence` — Overall `VMConfidence` level
+- `is_virtual()` — Returns `true` if confidence is `Probable` or `DefinitelyVM`
+
+#### `identy::vm::VMConfidence`
+Confidence level enumeration:
+| Level | Description |
+|-------|-------------|
+| `Unlikely` | No or only weak indicators |
+| `Possible` | Some indicators present but inconclusive |
+| `Probable` | Strong indicators present, likely virtualized |
+| `DefinitelyVM` | Multiple critical indicators, almost certainly a VM |
+
+#### `identy::vm::VMFlags`
+Detection indicators enumeration:
+
+| Flag | Description |
+|------|-------------|
+| `Cpu_Hypervisor_bit` | Hypervisor flag at CPUID |
+| `Cpu_Hypervisor_signature` | Known hypervisor signature detected |
+| `SMBIOS_SuspiciousManufacturer` | Known VM manufacturer in SMBIOS |
+| `SMBIOS_SuspiciousUUID` | Suspicious UUID pattern |
+| `SMBIOS_UUIDTotallyZeroed` | UUID is all zeros |
+| `Storage_SuspiciousSerial` | Drive serial looks virtual |
+| `Storage_BusTypeIsVirtual` | Drive bus type is Virtual |
+| `Storage_AllDrivesBusesVirtual` | All drives have virtual bus |
+| `Storage_BusTypeUncommon` | Uncommon bus type (SAS, SCSI, ATA) |
+| `Storage_ProductIdKnownVM` | Known VM product ID |
+| `Storage_AllDrivesVendorProductKnownVM` | All drives are known VM |
+| `Platform_WindowsRegistry` | Windows registry VM keys |
+| `Platform_LinuxDevices` | Linux virtual device files |
+| `Platform_VirtualNetworkAdaptersPresent` | Virtual network adapter detected |
+| `Platform_OnlyVirtualNetworkAdapters` | All adapters are virtual |
+| `Platform_AccessToNetworkDevicesDenied` | OS denied network access |
+| `Platform_HyperVIsolation` | Windows Hyper-V with Core Isolation |
 
 **Example:**
 ```cpp
@@ -251,25 +310,50 @@ if (verdict.is_virtual()) {
 
 ### `identy::Cpu`
 Contains comprehensive CPU information:
-- `vendor` — CPU manufacturer string
-- `extended_brand_string` — Full processor model name
-- `version` — Processor version info
+- `vendor` — CPU manufacturer string (e.g., "GenuineIntel", "AuthenticAMD")
+- `extended_brand_string` — Full processor model name (48 chars from CPUID)
+- `version` — Processor version info from CPUID leaf 0x01
 - `logical_processors_count` — Number of logical cores
-- `instruction_set` — Feature flags (SSE, AVX, AES-NI, etc.)
+- `hypervisor_bit` — Hypervisor presence flag (CPUID bit 31 ECX)
+- `hypervisor_signature` — Hypervisor vendor signature if present (e.g., "VMwareVMware", "KVMKVMKVM")
+- `brand_index` — Brand index value
+- `clflush_line_size` — Cache line flush size
+- `apic_id` — Advanced PIC ID
+- `instruction_set` — Feature flags structure:
+  - `basic` — Basic features from CPUID leaf 0x01 EDX
+  - `modern` — Modern features from CPUID leaf 0x01 ECX (SSE, AVX, AES-NI, etc.)
+  - `extended_modern[3]` — Extended features from CPUID leaf 0x07 (EBX, ECX, EDX)
+- `too_old` — Flag indicating very old CPU with limited CPUID support
 
 ### `identy::SMBIOS`
 SMBIOS firmware data:
 - `uuid[16]` — System UUID from SMBIOS Type 1
 - `major_version`, `minor_version` — SMBIOS spec version
-- `raw_tables_data` — Complete SMBIOS tables
+- `dmi_version` — DMI version number
+- `is_20_calling_used` — Whether SMBIOS 2.0 calling convention was used
+- `raw_tables_data` — Complete raw SMBIOS tables
 
 ### `identy::PhysicalDriveInfo`
 Physical storage device information:
-- `device_name` — System device path (e.g., `\\.\PhysicalDrive0` on Windows)
+- `device_name` — System device path (e.g., `\\.\PhysicalDrive0` on Windows, `/dev/sdX` on Linux)
 - `serial` — Drive serial number (manufacturer-assigned unique identifier)
-- `bus_type` — Connection type enum: `SATA`, `NVMe`, or `USB`
+- `model_id` — Human-readable device model ID
+- `vendor_id` — Human-readable device vendor ID
+- `product_id` — Human-readable device product ID
+- `bus_type` — Connection type enum:
 
-**Note:** Drive enumeration is currently only supported on Windows. Serial numbers may be empty if not provided by the drive firmware or if access is denied.
+| BusType | Description |
+|---------|-------------|
+| `SATA` | Serial ATA interface |
+| `NMVe` | NVM Express interface |
+| `USB` | Universal Serial Bus |
+| `Virtual` | Virtual storage bus |
+| `Scsi` | Old parallel SCSI bus |
+| `ATA` | PATA (IDE) interface |
+| `SAS` | Serial Attached SCSI (enterprise) |
+| `Other` | Unknown or unrecognized bus type |
+
+**Note:** Serial numbers may be empty if not provided by the drive firmware or if access is denied.
 
 ### `identy::Motherboard`
 Basic hardware snapshot:
@@ -280,7 +364,7 @@ Basic hardware snapshot:
 Extended hardware snapshot:
 - `cpu` — CPU information
 - `smbios` — Firmware data
-- `drives` — Physical storage devices
+- `drives` — Physical storage devices (sorted by serial number)
 
 ## Hash Types
 
@@ -294,13 +378,16 @@ Extended hardware snapshot:
 
 ### Windows
 - Uses `GetSystemFirmwareTable` API for SMBIOS access
-- Requires `advapi32.lib` linkage
+- Requires `advapi32.lib` and `iphlpapi.lib` linkage
 - Drive enumeration may need admin rights
 - Full CPUID support for CPU information extraction
 - Registry-based VM detection for Hyper-V and other hypervisors
+- Network adapter detection via `GetAdaptersInfo` API
 
 ### Linux
-**Note:** Linux support is planned but not yet implemented. The library currently only supports Windows platforms.
+- Partial support implemented
+- SMBIOS access via `/sys/firmware/dmi/` or `/dev/mem`
+- Drive and network adapter enumeration under development
 
 ## Security Considerations
 
