@@ -295,91 +295,17 @@ identy::vm::HeuristicVerdict check_mb_common(const MB& mb)
 }
 } // namespace
 
-constexpr identy::vm::detail::FlagStrength identy::vm::detail::get_flag_strength(VMFlags flag)
-{
-    switch(flag) {
-        case VMFlags::Platform_HyperVIsolation:
-        case VMFlags::Platform_VirtualNetworkAdaptersPresent:
-            return FlagStrength::Weak;
-
-        case VMFlags::SMBIOS_SuspiciousUUID:
-        case VMFlags::Platform_OnlyVirtualNetworkAdapters:
-        case VMFlags::Storage_BusTypeUncommon:
-            return FlagStrength::Medium;
-
-        case VMFlags::Cpu_Hypervisor_bit:
-        case VMFlags::Cpu_Hypervisor_signature:
-        case VMFlags::Storage_BusTypeIsVirtual:
-        case VMFlags::Storage_ProductIdKnownVM:
-        case VMFlags::SMBIOS_SuspiciousManufacturer:
-            return FlagStrength::Strong;
-
-        case VMFlags::SMBIOS_UUIDTotallyZeroed:
-        case VMFlags::Storage_AllDrivesBusesVirtual:
-        case VMFlags::Storage_AllDrivesVendorProductKnownVM:
-            return FlagStrength::Critical;
-
-        case VMFlags::Storage_SuspiciousSerial:
-        case VMFlags::Platform_WindowsRegistry:
-        case VMFlags::Platform_LinuxDevices:
-        case VMFlags::Platform_AccessToNetworkDevicesDenied:
-            return FlagStrength::Medium;
-
-        default:
-            return FlagStrength::Weak;
-    }
-}
-
-identy::vm::VMConfidence identy::vm::detail::calculate_confidence(const std::vector<VMFlags>& detections)
-{
-    int weak = 0, medium = 0, strong = 0;
-    bool critical = false;
-
-    for(auto flag : detections) {
-        switch(get_flag_strength(flag)) {
-            case FlagStrength::Weak:
-                ++weak;
-                break;
-            case FlagStrength::Medium:
-                ++medium;
-                break;
-            case FlagStrength::Strong:
-                ++strong;
-                break;
-            case FlagStrength::Critical:
-                critical = true;
-                break;
-        }
-    }
-
-    if(critical) {
-        return VMConfidence::DefinitelyVM;
-    }
-
-    if(strong >= 2) {
-        return VMConfidence::DefinitelyVM;
-    }
-
-    if(strong >= 1 || medium >= 3) {
-        return VMConfidence::Probable;
-    }
-
-    if(medium >= 1 || weak >= 2) {
-        return VMConfidence::Possible;
-    }
-
-    return VMConfidence::Unlikely;
-}
-
-identy::vm::HeuristicVerdict identy::vm::DefaultHeuristic::operator()(const Motherboard& mb) const
+template<identy::vm::WeightPolicy Policy>
+identy::vm::HeuristicVerdict identy::vm::DefaultHeuristic<Policy>::operator()(const Motherboard& mb) const
 {
     auto verdict = check_mb_common(mb);
-    verdict.confidence = detail::calculate_confidence(verdict.detections);
+    verdict.confidence = detail::calculate_confidence<Policy>(verdict.detections);
 
     return verdict;
 }
 
-identy::vm::HeuristicVerdict identy::vm::DefaultHeuristicEx::operator()(const MotherboardEx& mb) const
+template<identy::vm::WeightPolicy Policy>
+identy::vm::HeuristicVerdict identy::vm::DefaultHeuristicEx<Policy>::operator()(const MotherboardEx& mb) const
 {
     auto verdict = check_mb_common(mb);
 
@@ -400,7 +326,11 @@ identy::vm::HeuristicVerdict identy::vm::DefaultHeuristicEx::operator()(const Mo
         verdict.detections.push_back(identy::vm::VMFlags::Storage_AllDrivesVendorProductKnownVM);
     }
 
-    verdict.confidence = detail::calculate_confidence(verdict.detections);
+    verdict.confidence = detail::calculate_confidence<Policy>(verdict.detections);
 
     return verdict;
 }
+
+// Explicit template instantiations for default policy
+template struct identy::vm::DefaultHeuristic<identy::vm::DefaultWeightPolicy>;
+template struct identy::vm::DefaultHeuristicEx<identy::vm::DefaultWeightPolicy>;

@@ -30,6 +30,7 @@
 #ifndef UNC_IDENTY_VM_H
 #define UNC_IDENTY_VM_H
 
+#include <concepts>
 #include <type_traits>
 #include <vector>
 
@@ -91,25 +92,196 @@ enum class FlagStrength {
     Strong,   ///< Strong indicator (e.g., hypervisor CPUID bit)
     Critical, ///< Definitive indicator (e.g., confirmed VM signature)
 };
+} // namespace detail
 
 /**
- * @brief Maps a detection flag to its strength level
+ * @brief
+ * A weight policy provides the mapping from detection flags to their strength levels
+ * and the algorithm for calculating overall confidence from accumulated strengths.
+ * This allows customization of detection thresholds without reimplementing heuristics.
  *
- * @param flag Detection flag to query
- * @return Strength classification for the flag
+ * @tparam T Type to validate as a weight policy
+ *
+ * Requirements:
+ * - `static constexpr FlagStrength get_strength(VMFlags)` - returns strength for a flag
+ * - `static constexpr VMConfidence calculate(int weak, int medium, int strong, bool critical)` - computes confidence
+ * - Trivially constructible and destructible for zero-overhead instantiation
+ *
+ * @see DefaultWeightPolicy
  */
-constexpr FlagStrength get_flag_strength(VMFlags flag);
+template<typename T>
+concept WeightPolicy = requires(VMFlags flag, int count, bool crit) {
+    { T::get_strength(flag) } -> std::same_as<detail::FlagStrength>;
+    { T::calculate(count, count, count, crit) } -> std::same_as<VMConfidence>;
+} && std::is_trivially_constructible_v<T> && std::is_trivially_destructible_v<T>;
 
 /**
- * @brief Calculates overall VM confidence from detected flags
+ * @brief Default weight policy for VM detection confidence calculation
+ *
+ * Provides the standard mapping of detection flags to strength levels and
+ * the default algorithm for calculating overall VM confidence. This policy
+ * is used by DefaultHeuristic and DefaultHeuristicEx when no custom policy
+ * is specified.
+ *
+ * ## Strength Classifications
+ *
+ * - **Weak**: Minor indicators (HyperV isolation, virtual network adapters present)
+ * - **Medium**: Moderate indicators (suspicious UUID, uncommon bus types)
+ * - **Strong**: Significant indicators (hypervisor bit, VM manufacturer strings)
+ * - **Critical**: Definitive indicators (all drives virtual, zeroed UUID)
+ *
+ * ## Confidence Thresholds
+ *
+ * - **DefinitelyVM**: Any critical flag OR 2+ strong flags
+ * - **Probable**: 1+ strong flags OR 3+ medium flags
+ * - **Possible**: 1+ medium flags OR 2+ weak flags
+ * - **Unlikely**: No significant indicators
+ *
+ * @note All methods are static constexpr for compile-time evaluation
+ *
+ * @see WeightPolicy
+ * @see DefaultHeuristic
+ */
+struct DefaultWeightPolicy
+{
+    /** @brief Threshold: strong flags needed for DefinitelyVM */
+    static constexpr int definite_strong_threshold() noexcept
+    {
+        return 2;
+    }
+
+    /** @brief Threshold: strong flags needed for Probable */
+    static constexpr int probable_strong_threshold() noexcept
+    {
+        return 1;
+    }
+
+    /** @brief Threshold: medium flags needed for Probable */
+    static constexpr int probable_medium_threshold() noexcept
+    {
+        return 3;
+    }
+
+    /** @brief Threshold: medium flags needed for Possible */
+    static constexpr int possible_medium_threshold() noexcept
+    {
+        return 1;
+    }
+
+    /** @brief Threshold: weak flags needed for Possible */
+    static constexpr int possible_weak_threshold() noexcept
+    {
+        return 2;
+    }
+
+    /**
+     * @brief Maps a detection flag to its strength level
+     *
+     * @param flag Detection flag to query
+     * @return Strength classification for the flag
+     */
+    static constexpr detail::FlagStrength get_strength(VMFlags flag) noexcept
+    {
+        using enum detail::FlagStrength;
+        switch(flag) {
+            case VMFlags::Platform_HyperVIsolation:
+            case VMFlags::Platform_VirtualNetworkAdaptersPresent:
+                return Weak;
+
+            case VMFlags::SMBIOS_SuspiciousUUID:
+            case VMFlags::Platform_OnlyVirtualNetworkAdapters:
+            case VMFlags::Storage_BusTypeUncommon:
+            case VMFlags::Storage_SuspiciousSerial:
+            case VMFlags::Platform_WindowsRegistry:
+            case VMFlags::Platform_LinuxDevices:
+            case VMFlags::Platform_AccessToNetworkDevicesDenied:
+                return Medium;
+
+            case VMFlags::Cpu_Hypervisor_bit:
+            case VMFlags::Cpu_Hypervisor_signature:
+            case VMFlags::Storage_BusTypeIsVirtual:
+            case VMFlags::Storage_ProductIdKnownVM:
+            case VMFlags::SMBIOS_SuspiciousManufacturer:
+                return Strong;
+
+            case VMFlags::SMBIOS_UUIDTotallyZeroed:
+            case VMFlags::Storage_AllDrivesBusesVirtual:
+            case VMFlags::Storage_AllDrivesVendorProductKnownVM:
+                return Critical;
+
+            default:
+                return Weak;
+        }
+    }
+
+    /**
+     * @brief Calculates overall VM confidence from strength counts
+     *
+     * @param weak Count of weak-strength flags detected
+     * @param medium Count of medium-strength flags detected
+     * @param strong Count of strong-strength flags detected
+     * @param critical Whether any critical-strength flag was detected
+     * @return Overall confidence level
+     */
+    static constexpr VMConfidence calculate(int weak, int medium, int strong, bool critical) noexcept
+    {
+        if(critical) {
+            return VMConfidence::DefinitelyVM;
+        }
+
+        if(strong >= definite_strong_threshold()) {
+            return VMConfidence::DefinitelyVM;
+        }
+
+        if(strong >= probable_strong_threshold() || medium >= probable_medium_threshold()) {
+            return VMConfidence::Probable;
+        }
+
+        if(medium >= possible_medium_threshold() || weak >= possible_weak_threshold()) {
+            return VMConfidence::Possible;
+        }
+
+        return VMConfidence::Unlikely;
+    }
+};
+
+namespace detail
+{
+/**
+ * @brief Calculates overall VM confidence from detected flags using specified policy
  *
  * Aggregates individual flag strengths to produce an overall confidence
  * level indicating the likelihood of virtualization.
  *
+ * @tparam Policy Weight policy type satisfying WeightPolicy concept
  * @param detections Vector of detected VMFlags
  * @return Overall confidence level (Unlikely to DefinitelyVM)
  */
-VMConfidence calculate_confidence(const std::vector<VMFlags>& detections);
+template<WeightPolicy Policy = DefaultWeightPolicy>
+VMConfidence calculate_confidence(const std::vector<VMFlags>& detections)
+{
+    int weak = 0, medium = 0, strong = 0;
+    bool critical = false;
+
+    for(auto flag : detections) {
+        switch(Policy::get_strength(flag)) {
+            case FlagStrength::Weak:
+                ++weak;
+                break;
+            case FlagStrength::Medium:
+                ++medium;
+                break;
+            case FlagStrength::Strong:
+                ++strong;
+                break;
+            case FlagStrength::Critical:
+                critical = true;
+                break;
+        }
+    }
+
+    return Policy::calculate(weak, medium, strong, critical);
+}
 } // namespace detail
 
 /**
@@ -141,10 +313,21 @@ struct HeuristicVerdict
  * @brief Default heuristic functor for basic motherboard analysis
  *
  * Analyzes CPU and SMBIOS data to detect VM indicators without requiring
- * extended hardware enumeration.
+ * extended hardware enumeration. The weight policy can be customized to
+ * adjust detection sensitivity and confidence thresholds.
+ *
+ * @tparam Policy Weight policy type satisfying WeightPolicy concept
+ *                (default: DefaultWeightPolicy)
+ *
+ * @see WeightPolicy
+ * @see DefaultWeightPolicy
  */
+template<WeightPolicy Policy = DefaultWeightPolicy>
 struct DefaultHeuristic
 {
+    /** @brief Weight policy type used for confidence calculation */
+    using policy_type = Policy;
+
     /**
      * @brief Performs VM detection analysis on basic motherboard data
      *
@@ -157,12 +340,22 @@ struct DefaultHeuristic
 /**
  * @brief Default heuristic functor for extended motherboard analysis
  *
- * Analyzes CPU, SMBIOS, and network adapter data to detect VM indicators.
- * Currently performs the same analysis as DefaultHeuristic; drive serial
- * number checking is reserved for future implementation.
+ * Analyzes CPU, SMBIOS, network adapter, and storage device data to detect
+ * VM indicators. The weight policy can be customized to adjust detection
+ * sensitivity and confidence thresholds.
+ *
+ * @tparam Policy Weight policy type satisfying WeightPolicy concept
+ *                (default: DefaultWeightPolicy)
+ *
+ * @see WeightPolicy
+ * @see DefaultWeightPolicy
  */
+template<WeightPolicy Policy = DefaultWeightPolicy>
 struct DefaultHeuristicEx
 {
+    /** @brief Weight policy type used for confidence calculation */
+    using policy_type = Policy;
+
     /**
      * @brief Performs VM detection analysis on extended motherboard data
      *
@@ -218,7 +411,7 @@ namespace identy::vm
  * @see analyze_full()
  * @see HeuristicVerdict
  */
-template<Heuristic Heuristic = DefaultHeuristic>
+template<Heuristic Heuristic = DefaultHeuristic<>>
 bool assume_virtual(const Motherboard& mb);
 
 /**
@@ -243,7 +436,7 @@ bool assume_virtual(const Motherboard& mb);
  * @see analyze_full()
  * @see HeuristicVerdict
  */
-template<HeuristicEx Heuristic = DefaultHeuristicEx>
+template<HeuristicEx Heuristic = DefaultHeuristicEx<>>
 bool assume_virtual(const MotherboardEx& mb);
 
 /**
@@ -264,7 +457,7 @@ bool assume_virtual(const MotherboardEx& mb);
  * @see assume_virtual()
  * @see HeuristicVerdict
  */
-template<Heuristic Heuristic = DefaultHeuristic>
+template<Heuristic Heuristic = DefaultHeuristic<>>
 HeuristicVerdict analyze_full(const Motherboard& mb);
 
 /**
@@ -288,7 +481,7 @@ HeuristicVerdict analyze_full(const Motherboard& mb);
  * @see assume_virtual()
  * @see HeuristicVerdict
  */
-template<HeuristicEx Heuristic = DefaultHeuristicEx>
+template<HeuristicEx Heuristic = DefaultHeuristicEx<>>
 HeuristicVerdict analyze_full(const MotherboardEx& mb);
 } // namespace identy::vm
 
