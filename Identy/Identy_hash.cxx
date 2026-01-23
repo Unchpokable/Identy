@@ -12,6 +12,8 @@ template<typename T>
 void hash_value(identy::hs::detail::Sha256& ctx, const T& value) noexcept
 {
     static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
+    static_assert(std::has_unique_object_representations_v<T>, "T MUST have unique object representations");
+
     ctx.update(reinterpret_cast<const identy::byte*>(&value), sizeof(T));
 }
 
