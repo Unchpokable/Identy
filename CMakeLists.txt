@@ -22,3 +22,13 @@ elseif(UNIX AND NOT APPLE)
 endif()
 
 add_subdirectory("Identy")
+
+# Testing support
+option(IDENTY_BUILD_TESTS "Build the Identy test suite" OFF)
+option(IDENTY_TEST_EXPECT_VM "Expect tests to run in a virtual machine (CI environment)" OFF)
+option(IDENTY_TEST_EXPECT_BAREMETAL "Expect tests to run on bare metal hardware" OFF)
+
+if(IDENTY_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

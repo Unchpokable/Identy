@@ -1,0 +1,129 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  # ===========================================================================
+  # Windows Tests
+  # ===========================================================================
+  test-windows:
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            cmake_arch: x64
+          - arch: x86
+            cmake_arch: Win32
+
+    name: Windows ${{ matrix.arch }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -A ${{ matrix.cmake_arch }} `
+            -DIDENTY_BUILD_TESTS=ON `
+            -DIDENTY_TEST_EXPECT_VM=ON
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }}
+
+      - name: Run Tests
+        run: ctest --test-dir build -C ${{ env.BUILD_TYPE }} --output-on-failure --verbose
+
+  # ===========================================================================
+  # Linux Tests
+  # ===========================================================================
+  test-linux:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - { cc: gcc-12, cxx: g++-12 }
+          - { cc: clang-15, cxx: clang++-15 }
+
+    name: Linux (${{ matrix.compiler.cxx }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install compiler
+        run: |
+          sudo apt-get update
+          if [[ "${{ matrix.compiler.cc }}" == gcc* ]]; then
+            sudo apt-get install -y ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }}
+          else
+            sudo apt-get install -y ${{ matrix.compiler.cc }} ${{ matrix.compiler.cxx }}
+          fi
+
+      - name: Configure CMake
+        env:
+          CC: ${{ matrix.compiler.cc }}
+          CXX: ${{ matrix.compiler.cxx }}
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DIDENTY_BUILD_TESTS=ON \
+            -DIDENTY_TEST_EXPECT_VM=ON
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} -j $(nproc)
+
+      - name: Run Tests
+        run: ctest --test-dir build -C ${{ env.BUILD_TYPE }} --output-on-failure --verbose
+
+  # ===========================================================================
+  # Code Quality Checks (optional)
+  # ===========================================================================
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint Check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+          # Find all source files and check formatting
+          find Identy tests -name '*.cxx' -o -name '*.hxx' -o -name '*.h' | head -20 | while read file; do
+            if ! clang-format --dry-run --Werror "$file" 2>/dev/null; then
+              echo "File $file needs formatting"
+            fi
+          done
+        continue-on-error: true
+
+  # ===========================================================================
+  # Summary Job
+  # ===========================================================================
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: [test-windows, test-linux]
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          if [[ "${{ needs.test-windows.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-linux.result }}" == "failure" ]]; then
+            echo "Some tests failed!"
+            exit 1
+          fi
+          echo "All tests passed!"
