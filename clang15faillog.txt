@@ -1,0 +1,112 @@
+[  4%] Building CXX object _deps/googletest-build/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o
+[  8%] Building CXX object Identy/CMakeFiles/Identy.dir/Identy_hwid.cxx.o
+[ 12%] Building CXX object Identy/CMakeFiles/Identy.dir/Identy_vm.cxx.o
+[ 16%] Building CXX object Identy/CMakeFiles/Identy.dir/Identy_hash.cxx.o
+In file included from /home/runner/work/Identy/Identy/Identy/Identy_hwid.cxx:1:
+In file included from /home/runner/work/Identy/Identy/Identy/Identy_pch.hxx:6:
+In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/algorithm:60:
+In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/stl_algobase.h:65:
+In file included from /usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/stl_iterator_base_types.h:71:
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:1013:13: error: no matching function for call to '__begin'
+        = decltype(ranges::__access::__begin(std::declval<_Tp&>()));
+                   ^~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/ranges_base.h:511:5: note: in instantiation of template type alias '__range_iter_t' requested here
+    using iterator_t = std::__detail::__range_iter_t<_Tp>;
+    ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/ranges_util.h:132:36: note: in instantiation of template type alias 'iterator_t' requested here
+      requires contiguous_iterator<iterator_t<_Derived>>
+                                   ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/ranges_util.h:262:29: note: in instantiation of template class 'std::ranges::view_interface<std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized>>' requested here
+    class subrange : public view_interface<subrange<_It, _Sent, _Kind>>
+                            ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:979:22: note: in instantiation of template class 'std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized>' requested here
+          { __decay_copy(__t.begin()) } -> input_or_output_iterator;
+                            ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:979:6: note: in instantiation of requirement here
+          { __decay_copy(__t.begin()) } -> input_or_output_iterator;
+            ^~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:977:32: note: (skipping 11 contexts in backtrace; use -ftemplate-backtrace-limit=0 to see all)
+      concept __member_begin = requires(_Tp& __t)
+                               ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/unicode.h:591:5: note: while checking constraint satisfaction for template '_Utf_view<char32_t, std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized>>' required here
+    using _Utf32_view = _Utf_view<char32_t, _View>;
+    ^~~~~
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/format:439:3: note: in instantiation of template type alias '_Utf32_view' requested here
+                _Utf32_view<ranges::subrange<iterator>> __uv({__first, __last});
+                ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/format:974:19: note: in instantiation of member function 'std::__format::_Spec<wchar_t>::_M_parse_fill_and_align' requested here
+        __first = __spec._M_parse_fill_and_align(__first, __last);
+                         ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/format:1073:21: note: in instantiation of member function 'std::__format::__formatter_int<wchar_t>::_M_do_parse' requested here
+              auto __end = _M_do_parse(__pc, _AsChar);
+                           ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/format:1899:14: note: in instantiation of function template specialization 'std::__format::__formatter_int<wchar_t>::_M_parse<char>' requested here
+        return _M_f._M_parse<char>(__pc);
+                    ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:997:7: note: candidate template ignored: constraints not satisfied [with _Tp = std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized>]
+      __begin(_Tp& __t)
+      ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:995:16: note: because 'is_array_v<std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized> >' evaluated to false
+      requires is_array_v<_Tp> || __member_begin<_Tp&> || __adl_begin<_Tp&>
+               ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:995:35: note: and 'std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized> &' does not satisfy '__member_begin'
+      requires is_array_v<_Tp> || __member_begin<_Tp&> || __adl_begin<_Tp&>
+                                  ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:979:23: note: because '__decay_copy(__t.begin())' would be invalid: no member named 'begin' in 'std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized>'
+          { __decay_copy(__t.begin()) } -> input_or_output_iterator;
+                             ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:995:59: note: and 'std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized> &' does not satisfy '__adl_begin'
+      requires is_array_v<_Tp> || __member_begin<_Tp&> || __adl_begin<_Tp&>
+                                                          ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:989:19: note: because '__decay_copy(begin(__t))' would be invalid: no matching function for call to 'begin'
+          { __decay_copy(begin(__t)) } -> input_or_output_iterator;
+                         ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:1013:13: error: no matching function for call to '__begin'
+        = decltype(ranges::__access::__begin(std::declval<_Tp&>()));
+                   ^~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/ranges_base.h:511:5: note: in instantiation of template type alias '__range_iter_t' requested here
+    using iterator_t = std::__detail::__range_iter_t<_Tp>;
+    ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/ranges_util.h:138:25: note: in instantiation of template type alias 'iterator_t' requested here
+        && contiguous_iterator<iterator_t<const _Derived>>
+                               ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/ranges_util.h:262:29: note: in instantiation of template class 'std::ranges::view_interface<std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized>>' requested here
+    class subrange : public view_interface<subrange<_It, _Sent, _Kind>>
+                            ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:979:22: note: in instantiation of template class 'std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized>' requested here
+          { __decay_copy(__t.begin()) } -> input_or_output_iterator;
+                            ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:979:6: note: in instantiation of requirement here
+          { __decay_copy(__t.begin()) } -> input_or_output_iterator;
+            ^~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:977:32: note: (skipping 11 contexts in backtrace; use -ftemplate-backtrace-limit=0 to see all)
+      concept __member_begin = requires(_Tp& __t)
+                               ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/unicode.h:591:5: note: while checking constraint satisfaction for template '_Utf_view<char32_t, std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized>>' required here
+    using _Utf32_view = _Utf_view<char32_t, _View>;
+    ^~~~~
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/format:439:3: note: in instantiation of template type alias '_Utf32_view' requested here
+                _Utf32_view<ranges::subrange<iterator>> __uv({__first, __last});
+                ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/format:974:19: note: in instantiation of member function 'std::__format::_Spec<wchar_t>::_M_parse_fill_and_align' requested here
+        __first = __spec._M_parse_fill_and_align(__first, __last);
+                         ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/format:1073:21: note: in instantiation of member function 'std::__format::__formatter_int<wchar_t>::_M_do_parse' requested here
+              auto __end = _M_do_parse(__pc, _AsChar);
+                           ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/format:1899:14: note: in instantiation of function template specialization 'std::__format::__formatter_int<wchar_t>::_M_parse<char>' requested here
+        return _M_f._M_parse<char>(__pc);
+                    ^
+/usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:997:7: note: candidate template ignored: constraints not satisfied [with _Tp = const std::ranges::subrange<const wchar_t *, const wchar_t *, std::ranges::subrange_kind::sized>]
+      __begin(_Tp& __t)
+      
+      ....
+
+      /usr/bin/../lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/bits/iterator_concepts.h:989:19: note: because '__decay_copy(begin(__t))' would be invalid: no matching function for call to 'begin'
+          { __decay_copy(begin(__t)) } -> input_or_output_iterator;
+                         ^
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+20 errors generated.
+gmake[2]: *** [_deps/googletest-build/googletest/CMakeFiles/gtest.dir/build.make:79: _deps/googletest-build/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:351: _deps/googletest-build/googletest/CMakeFiles/gtest.dir/all] Error 2
+gmake: *** [Makefile:146: all] Error 2
