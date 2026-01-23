@@ -15,6 +15,8 @@ namespace identy
 #ifdef IDENTY_WIN32
 /** @brief Platform-specific byte type alias (Windows BYTE) */
 using byte = BYTE;
+/** @brief Platform-specific quad word (64-bit) type alias */
+using qword = std::uint64_t;
 /** @brief Platform-specific double word (32-bit) type alias (Windows DWORD) */
 using dword = DWORD;
 /** @brief Platform-specific word (16-bit) type alias (Windows WORD) */
@@ -22,6 +24,8 @@ using word = WORD;
 #else
 /** @brief Platform-specific byte type alias (unsigned char) */
 using byte = unsigned char;
+/** @brief Platform-specific quad word (64-bit) type alias */
+using qword = std::uint64_t;
 /** @brief Platform-specific double word (32-bit) type alias */
 using dword = std::uint32_t;
 /** @brief Platform-specific word (16-bit) type alias */
