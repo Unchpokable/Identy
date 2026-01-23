@@ -404,18 +404,6 @@ Hardware fingerprinting should be used responsibly:
 - Creating "super cookies" without consent
 - Bypassing user privacy controls
 
-## Performance
-
-Typical execution times on modern hardware:
-
-- **snap_motherboard()**: ~1-5ms (CPU CPUID + SMBIOS firmware table read)
-- **snap_motherboard_ex()**: ~10-50ms (includes physical drive enumeration via WMI/DeviceIoControl)
-- **hash()**: ~0.1ms (pure SHA-256 computation)
-- **vm::assume_virtual()**: ~0.5-2ms (heuristic analysis with minimal overhead)
-- **Zero heap allocations** for basic operations (except `std::string` fields and `std::vector` containers)
-
-**Note:** Drive enumeration time varies based on the number of installed storage devices and may require administrative privileges on Windows.
-
 ## Contributing
 
 Contributions are welcome! Please:
@@ -429,13 +417,3 @@ Contributions are welcome! Please:
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE.txt](LICENSE.txt) file for details.
-
-## Acknowledgments
-
-- SMBIOS specifications by DMTF
-- Intel and AMD CPUID documentation
-- Windows Firmware Table API documentation
-
----
-
-**Made with C++20** | **Built for reliability** | **Designed for privacy-conscious developers**
