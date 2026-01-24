@@ -8,7 +8,83 @@
 
 namespace
 {
+std::optional<std::array<identy::byte, 16>> get_smbios_uuid_sysfs(std::string_view uuid_str)
+{
+    if(uuid_str.size() < 32) {
+        return std::nullopt;
+    }
 
+    std::array<identy::byte, 16> uuid;
+
+    std::size_t byte_index { 0 };
+
+    for(std::size_t i { 0 }; i < uuid_str.size() && byte_index < 16; ++i) {
+        if(uuid_str[i] == '-') {
+            continue;
+        }
+
+        if(i + 1 >= uuid_str.size()) {
+            break;
+        }
+
+        char byte_hex[3] = { uuid_str[i], uuid_str[i + 1], 0 };
+
+        identy::byte value { 0 };
+
+        auto [ptr, ec] = std::from_chars(byte_hex, byte_hex + 2, value, 16);
+
+        if(ec == std::errc()) {
+            uuid[byte_index++] = value;
+            i++;
+        }
+        {
+            return std::nullopt;
+        }
+    }
+
+    if(byte_index != 16) {
+        return std::nullopt;
+    }
+
+    return uuid;
+}
+} // namespace
+
+namespace
+{
+void try_read_sysfs_uuid(identy::SMBIOS_RawData& result)
+{
+    const std::filesystem::path dmi_id_path = "/sys/class/dmi/id";
+
+    if(!std::filesystem::exists(dmi_id_path)) {
+        return;
+    }
+
+    std::ifstream uuid_file(dmi_id_path / "product_uuid");
+
+    std::string uuid_string;
+
+    if(uuid_file >> uuid_string) {
+        auto trimmed = identy::strings::trim_whitespace(uuid_string);
+        result.fallback_uid = get_smbios_uuid_sysfs(trimmed);
+    }
+
+    std::ifstream version_file(dmi_id_path / "smbios_version");
+
+    std::string version_string;
+
+    if(version_file >> version_string) {
+        size_t dot_pos = version_string.find('.');
+        if(dot_pos != std::string::npos) {
+            std::from_chars(version_string.data(), version_string.data() + dot_pos, result.major_version);
+            std::from_chars(version_string.data() + dot_pos + 1, version_string.data() + version_string.size(), result.minor_version);
+        }
+    }
+}
+} // namespace
+
+namespace
+{
 identy::SMBIOS_Entry_Type get_smbios_entry_type(const identy::byte* data, std::size_t size)
 {
     if(size >= 4 && std::memcmp(data, "_SM_", 4) == 0) {
@@ -54,29 +130,30 @@ void read_smbios_versions(identy::SMBIOS_RawData& result, const std::vector<iden
 identy::SMBIOS_RawData get_smbios_linux()
 {
     std::ifstream file("/sys/firmware/dmi/tables/DMI", std::ios::binary | std::ios::ate);
-
-    if(!file.is_open()) {
-        return {};
-    }
-
-    auto size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
     identy::SMBIOS_RawData result;
-    result.table_data.resize(static_cast<std::size_t>(size));
 
-    file.read(reinterpret_cast<char*>(result.table_data.data()), size);
+    if(file.is_open()) {
+        auto size = file.tellg();
+        file.seekg(0, std::ios::beg);
 
-    // Read entry point for version info
-    std::ifstream entry_file("/sys/firmware/dmi/tables/smbios_entry_point", std::ios::binary | std::ios::ate);
-    if(entry_file.is_open()) {
-        auto entry_size = entry_file.tellg();
-        entry_file.seekg(0);
+        result.table_data.resize(static_cast<std::size_t>(size));
 
-        std::vector<identy::byte> entry_buffer(static_cast<std::size_t>(entry_size));
-        entry_file.read(reinterpret_cast<char*>(entry_buffer.data()), entry_size);
+        file.read(reinterpret_cast<char*>(result.table_data.data()), size);
 
-        read_smbios_versions(result, entry_buffer);
+        // Read entry point for version info
+        std::ifstream entry_file("/sys/firmware/dmi/tables/smbios_entry_point", std::ios::binary | std::ios::ate);
+        if(entry_file.is_open()) {
+            auto entry_size = entry_file.tellg();
+            entry_file.seekg(0);
+
+            std::vector<identy::byte> entry_buffer(static_cast<std::size_t>(entry_size));
+            entry_file.read(reinterpret_cast<char*>(entry_buffer.data()), entry_size);
+
+            read_smbios_versions(result, entry_buffer);
+        }
+    }
+    else {
+        try_read_sysfs_uuid(result);
     }
 
     return result;

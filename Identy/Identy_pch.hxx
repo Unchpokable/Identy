@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <charconv>
 #include <concepts>
 #include <cstdint>
 #include <cstring>

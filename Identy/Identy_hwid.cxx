@@ -91,8 +91,7 @@ std::vector<std::uint8_t> get_smbios_uuid(const std::vector<identy::byte>& table
                 break;
             }
 
-            return std::vector<std::uint8_t>(
-                table_data.begin() + uuid_start, table_data.begin() + uuid_start + identy::SMBIOS_uuid_length);
+            return std::vector<std::uint8_t>(table_data.begin() + uuid_start, table_data.begin() + uuid_start + identy::SMBIOS_uuid_length);
         }
 
         // Move past formatted area
@@ -254,8 +253,13 @@ identy::Motherboard identy::snap_motherboard()
 
     motherboard.smbios.raw_tables_data = std::move(smbios_raw.table_data);
 
-    auto uuid = get_smbios_uuid(motherboard.smbios.raw_tables_data);
-    std::memcpy(motherboard.smbios.uuid, uuid.data(), std::min(uuid.size(), sizeof(motherboard.smbios.uuid)));
+    if(!motherboard.smbios.raw_tables_data.empty()) {
+        auto uuid = get_smbios_uuid(motherboard.smbios.raw_tables_data);
+        std::memcpy(motherboard.smbios.uuid, uuid.data(), std::min(uuid.size(), sizeof(motherboard.smbios.uuid)));
+    }
+    else if(smbios_raw.fallback_uid.has_value()) {
+        std::memcpy(motherboard.smbios.uuid, smbios_raw.fallback_uid->data(), 16);
+    }
 
     return motherboard;
 }

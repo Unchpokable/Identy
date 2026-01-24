@@ -66,9 +66,11 @@ struct SMBIOS_RawData
     byte dmi_revision { 0 };
     std::vector<byte> table_data;
 
+    std::optional<std::array<identy::byte, 16>> fallback_uid;
+
     [[nodiscard]] bool empty() const noexcept
     {
-        return table_data.empty();
+        return table_data.empty() && !fallback_uid.has_value();
     }
 };
 
