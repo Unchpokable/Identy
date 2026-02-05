@@ -85,8 +85,9 @@ std::string get_smbios_manufacturer(const identy::SMBIOS& smbios)
 
     return std::string(manufacturer);
 }
+} // namespace
 
-bool is_hvci(const identy::Cpu& cpu, const identy::SMBIOS& smbios)
+bool identy::vm::detail::is_hvci(const identy::Cpu& cpu, const identy::SMBIOS& smbios)
 {
     if(!cpu.hypervisor_bit) {
         return false;
@@ -110,7 +111,6 @@ bool is_hvci(const identy::Cpu& cpu, const identy::SMBIOS& smbios)
 
     return true;
 }
-} // namespace
 
 void identy::vm::detail::check_network_adapters(identy::vm::HeuristicVerdict& verdict)
 {

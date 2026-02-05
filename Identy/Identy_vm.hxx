@@ -30,6 +30,7 @@
 #ifndef UNC_IDENTY_VM_H
 #define UNC_IDENTY_VM_H
 
+#include <array>
 #include <concepts>
 #include <type_traits>
 #include <vector>
@@ -38,7 +39,6 @@
 
 namespace identy::vm
 {
-
 constexpr const char* microsoft_hyperv_sig = "Microsoft Hv";
 
 constexpr std::array known_hypervisor_signatures {
@@ -550,6 +550,8 @@ void check_network_adapters(identy::vm::HeuristicVerdict& verdict);
 void check_smbios(const identy::SMBIOS& smbios, identy::vm::HeuristicVerdict& verdict);
 void check_drive(const identy::PhysicalDriveInfo& drive, identy::vm::HeuristicVerdict& verdict, int& product_id_known_vm_count);
 
+bool is_hvci(const identy::Cpu& cpu, const identy::SMBIOS& smbios);
+
 template<typename MB>
 identy::vm::HeuristicVerdict check_mb_common(const MB& mb)
 {
@@ -563,8 +565,8 @@ identy::vm::HeuristicVerdict check_mb_common(const MB& mb)
             verdict.detections.push_back(identy::vm::VMFlags::Cpu_Hypervisor_bit);
         }
 
-        if(std::ranges::any_of(known_hypervisor_signatures, [&mb](const std::string& sig) {
-               return mb.cpu.hypervisor_signature.find(sig) != std::string::npos;
+        if(std::ranges::any_of(known_hypervisor_signatures, [&mb](std::string_view sig) {
+               return mb.cpu.hypervisor_signature.find(sig) != std::string_view::npos;
            })) {
             verdict.detections.push_back(identy::vm::VMFlags::Cpu_Hypervisor_signature);
         }
