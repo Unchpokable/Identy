@@ -38,6 +38,65 @@
 
 namespace identy::vm
 {
+
+constexpr const char* microsoft_hyperv_sig = "Microsoft Hv";
+
+constexpr std::array known_hypervisor_signatures {
+    "KVM",
+    "KVMKVMKVM",
+    "VMwareVMware",
+    "VBoxVBoxVBox",
+    "TCGTCGTCG",
+    "ACRNACRN",
+    "bhyve bhyve",
+    "Xen",
+    microsoft_hyperv_sig,
+};
+
+constexpr std::array known_vm_manufacturers {
+    "innotek GmbH",
+    "Oracle",
+    "VMware, Inc.",
+    "QEMU",
+    "Xen",
+    "Microsoft Corporation",
+    "Parallels",
+};
+
+constexpr std::array known_vm_network_adapters {
+    "vmware",
+    "vmxnet",
+    "vmnet", // VMware
+    "virtualbox",
+    "vbox", // VirtualBox
+    "hyper-v",
+    "microsoft hyper-v", // Hyper-V
+    "virtio",
+    "red hat virtio", // KVM/QEMU
+    "xennet",
+    "xen",       // Xen
+    "parallels", // Parallels
+};
+
+constexpr std::array known_vm_drives_products {
+    "VBOX",
+    "VMWARE",
+    "QEMU",
+    "VIRTUAL",
+    "XEN",
+    "KVM",
+    "RED HAT",
+    "VIRTIO",
+    "MSFT",
+    "MICROSOFT VIRTUAL",
+};
+
+constexpr std::array suspiciuos_buses {
+    identy::PhysicalDriveInfo::SAS,
+    identy::PhysicalDriveInfo::Scsi,
+    identy::PhysicalDriveInfo::ATA,
+};
+
 /**
  * @brief Virtual machine detection flags enumeration
  *
@@ -485,6 +544,39 @@ template<HeuristicEx Heuristic = DefaultHeuristicEx<>>
 HeuristicVerdict analyze_full(const MotherboardEx& mb);
 } // namespace identy::vm
 
+namespace identy::vm::detail
+{
+void check_network_adapters(identy::vm::HeuristicVerdict& verdict);
+void check_smbios(const identy::SMBIOS& smbios, identy::vm::HeuristicVerdict& verdict);
+void check_drive(const identy::PhysicalDriveInfo& drive, identy::vm::HeuristicVerdict& verdict, int& product_id_known_vm_count);
+
+template<typename MB>
+identy::vm::HeuristicVerdict check_mb_common(const MB& mb)
+{
+    identy::vm::HeuristicVerdict verdict;
+
+    if(is_hvci(mb.cpu, mb.smbios)) {
+        verdict.detections.push_back(identy::vm::VMFlags::Platform_HyperVIsolation);
+    }
+    else {
+        if(mb.cpu.hypervisor_bit) {
+            verdict.detections.push_back(identy::vm::VMFlags::Cpu_Hypervisor_bit);
+        }
+
+        if(std::ranges::any_of(known_hypervisor_signatures, [&mb](const std::string& sig) {
+               return mb.cpu.hypervisor_signature.find(sig) != std::string::npos;
+           })) {
+            verdict.detections.push_back(identy::vm::VMFlags::Cpu_Hypervisor_signature);
+        }
+    }
+
+    check_smbios(mb.smbios, verdict);
+    check_network_adapters(verdict);
+
+    return verdict;
+}
+} // namespace identy::vm::detail
+
 template<identy::vm::Heuristic Heuristic>
 bool identy::vm::assume_virtual(const Motherboard& mb)
 {
@@ -507,6 +599,42 @@ template<identy::vm::HeuristicEx Heuristic>
 identy::vm::HeuristicVerdict identy::vm::analyze_full(const MotherboardEx& mb)
 {
     return Heuristic {}(mb);
+}
+
+template<identy::vm::WeightPolicy Policy>
+identy::vm::HeuristicVerdict identy::vm::DefaultHeuristic<Policy>::operator()(const Motherboard& mb) const
+{
+    auto verdict = detail::check_mb_common(mb);
+    verdict.confidence = detail::calculate_confidence<Policy>(verdict.detections);
+
+    return verdict;
+}
+
+template<identy::vm::WeightPolicy Policy>
+identy::vm::HeuristicVerdict identy::vm::DefaultHeuristicEx<Policy>::operator()(const MotherboardEx& mb) const
+{
+    auto verdict = detail::check_mb_common(mb);
+
+    int product_vm_count {};
+    for(auto& disk : mb.drives) {
+        detail::check_drive(disk, verdict, product_vm_count);
+    }
+
+    auto virtual_buses = std::ranges::count_if(mb.drives, [](const identy::PhysicalDriveInfo& drive) {
+        return drive.bus_type == identy::PhysicalDriveInfo::Virtual;
+    });
+
+    if(!mb.drives.empty() && virtual_buses == mb.drives.size()) {
+        verdict.detections.push_back(identy::vm::VMFlags::Storage_AllDrivesBusesVirtual);
+    }
+
+    if(!mb.drives.empty() && product_vm_count == mb.drives.size()) {
+        verdict.detections.push_back(identy::vm::VMFlags::Storage_AllDrivesVendorProductKnownVM);
+    }
+
+    verdict.confidence = detail::calculate_confidence<Policy>(verdict.detections);
+
+    return verdict;
 }
 
 #endif

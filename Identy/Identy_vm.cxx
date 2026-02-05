@@ -6,67 +6,6 @@
 
 namespace
 {
-constexpr const char* microsoft_hyperv_sig = "Microsoft Hv";
-
-static constexpr std::array known_hypervisor_signatures {
-    "KVM",
-    "KVMKVMKVM",
-    "VMwareVMware",
-    "VBoxVBoxVBox",
-    "TCGTCGTCG",
-    "ACRNACRN",
-    "bhyve bhyve",
-    "Xen",
-    microsoft_hyperv_sig,
-};
-
-static constexpr std::array known_vm_manufacturers {
-    "innotek GmbH",
-    "Oracle",
-    "VMware, Inc.",
-    "QEMU",
-    "Xen",
-    "Microsoft Corporation",
-    "Parallels",
-};
-
-static constexpr std::array known_vm_network_adapters {
-    "vmware",
-    "vmxnet",
-    "vmnet", // VMware
-    "virtualbox",
-    "vbox", // VirtualBox
-    "hyper-v",
-    "microsoft hyper-v", // Hyper-V
-    "virtio",
-    "red hat virtio", // KVM/QEMU
-    "xennet",
-    "xen",       // Xen
-    "parallels", // Parallels
-};
-
-static constexpr std::array known_vm_drives_products {
-    "VBOX",
-    "VMWARE",
-    "QEMU",
-    "VIRTUAL",
-    "XEN",
-    "KVM",
-    "RED HAT",
-    "VIRTIO",
-    "MSFT",
-    "MICROSOFT VIRTUAL",
-};
-
-static constexpr std::array suspiciuos_buses {
-    identy::PhysicalDriveInfo::SAS,
-    identy::PhysicalDriveInfo::Scsi,
-    identy::PhysicalDriveInfo::ATA,
-};
-} // namespace
-
-namespace
-{
 constexpr std::uint32_t SMBIOS_type_system_manufacturer = 1;
 constexpr std::ptrdiff_t SMBIOS_system_manufacturer_offset = 4;
 } // namespace
@@ -95,53 +34,7 @@ constexpr bool contains_icase(std::string_view string, std::string_view substrin
     auto it = std::search(string.begin(), string.end(), substring.begin(), substring.end(), char_equal_icase);
     return it != string.end();
 }
-} // namespace
 
-namespace
-{
-void check_network_adapters(identy::vm::HeuristicVerdict& verdict)
-{
-    bool access_denied = false;
-    auto adapters = identy::platform::list_network_adapters(access_denied);
-
-    if(access_denied) {
-        verdict.detections.push_back(identy::vm::VMFlags::Platform_AccessToNetworkDevicesDenied);
-        return;
-    }
-
-    int virtual_adapters_count = 0;
-    int total_adapters_count = 0;
-
-    for(const auto& adapter : adapters) {
-        std::string_view desc { adapter.description };
-
-        auto is_virtual = std::ranges::any_of(known_vm_network_adapters, [desc](std::string_view key) {
-            return contains_icase(desc, key);
-        });
-
-        if(is_virtual) {
-            virtual_adapters_count++;
-            total_adapters_count++;
-        }
-        else {
-            if(!adapter.is_loopback && !adapter.is_tunnel) {
-                total_adapters_count++;
-            }
-        }
-    }
-
-    if(virtual_adapters_count > 0) {
-        verdict.detections.push_back(identy::vm::VMFlags::Platform_VirtualNetworkAdaptersPresent);
-    }
-
-    if(virtual_adapters_count == total_adapters_count && total_adapters_count > 0) {
-        verdict.detections.push_back(identy::vm::VMFlags::Platform_OnlyVirtualNetworkAdapters);
-    }
-}
-} // namespace
-
-namespace
-{
 std::string_view get_smbios_string(const identy::SMBIOS_Header* header, std::uint8_t index)
 {
     if(index == 0) {
@@ -199,13 +92,13 @@ bool is_hvci(const identy::Cpu& cpu, const identy::SMBIOS& smbios)
         return false;
     }
 
-    if(cpu.hypervisor_signature != microsoft_hyperv_sig) {
+    if(cpu.hypervisor_signature != identy::vm::microsoft_hyperv_sig) {
         return false;
     }
 
     auto manufacturer = get_smbios_manufacturer(smbios);
 
-    auto is_known_manufacturer = std::ranges::any_of(known_vm_manufacturers, [manufacturer](const std::string& man) {
+    auto is_known_manufacturer = std::ranges::any_of(identy::vm::known_vm_manufacturers, [manufacturer](const std::string& man) {
         return manufacturer.find(man) != std::string_view::npos;
     });
 
@@ -217,8 +110,49 @@ bool is_hvci(const identy::Cpu& cpu, const identy::SMBIOS& smbios)
 
     return true;
 }
+} // namespace
 
-void check_smbios(const identy::SMBIOS& smbios, identy::vm::HeuristicVerdict& verdict)
+void identy::vm::detail::check_network_adapters(identy::vm::HeuristicVerdict& verdict)
+{
+    bool access_denied = false;
+    auto adapters = identy::platform::list_network_adapters(access_denied);
+
+    if(access_denied) {
+        verdict.detections.push_back(identy::vm::VMFlags::Platform_AccessToNetworkDevicesDenied);
+        return;
+    }
+
+    int virtual_adapters_count = 0;
+    int total_adapters_count = 0;
+
+    for(const auto& adapter : adapters) {
+        std::string_view desc { adapter.description };
+
+        auto is_virtual = std::ranges::any_of(identy::vm::known_vm_network_adapters, [desc](std::string_view key) {
+            return contains_icase(desc, key);
+        });
+
+        if(is_virtual) {
+            virtual_adapters_count++;
+            total_adapters_count++;
+        }
+        else {
+            if(!adapter.is_loopback && !adapter.is_tunnel) {
+                total_adapters_count++;
+            }
+        }
+    }
+
+    if(virtual_adapters_count > 0) {
+        verdict.detections.push_back(identy::vm::VMFlags::Platform_VirtualNetworkAdaptersPresent);
+    }
+
+    if(virtual_adapters_count == total_adapters_count && total_adapters_count > 0) {
+        verdict.detections.push_back(identy::vm::VMFlags::Platform_OnlyVirtualNetworkAdapters);
+    }
+}
+
+void identy::vm::detail::check_smbios(const identy::SMBIOS& smbios, identy::vm::HeuristicVerdict& verdict)
 {
     auto manufacturer = get_smbios_manufacturer(smbios);
     auto is_known_manufacturer = std::ranges::any_of(known_vm_manufacturers, [manufacturer](const std::string& man) {
@@ -239,7 +173,8 @@ void check_smbios(const identy::SMBIOS& smbios, identy::vm::HeuristicVerdict& ve
     }
 }
 
-void check_drive(const identy::PhysicalDriveInfo& drive, identy::vm::HeuristicVerdict& verdict, int& product_id_known_vm_count)
+void identy::vm::detail::check_drive(const identy::PhysicalDriveInfo& drive, identy::vm::HeuristicVerdict& verdict,
+    int& product_id_known_vm_count)
 {
     auto full_model_name = drive.vendor_id + " " + drive.product_id;
 
@@ -264,73 +199,3 @@ void check_drive(const identy::PhysicalDriveInfo& drive, identy::vm::HeuristicVe
         verdict.detections.push_back(identy::vm::VMFlags::Storage_BusTypeUncommon);
     }
 }
-} // namespace
-
-namespace
-{
-template<typename MB>
-identy::vm::HeuristicVerdict check_mb_common(const MB& mb)
-{
-    identy::vm::HeuristicVerdict verdict;
-
-    if(is_hvci(mb.cpu, mb.smbios)) {
-        verdict.detections.push_back(identy::vm::VMFlags::Platform_HyperVIsolation);
-    }
-    else {
-        if(mb.cpu.hypervisor_bit) {
-            verdict.detections.push_back(identy::vm::VMFlags::Cpu_Hypervisor_bit);
-        }
-
-        if(std::ranges::any_of(known_hypervisor_signatures, [&mb](const std::string& sig) {
-               return mb.cpu.hypervisor_signature.find(sig) != std::string::npos;
-           })) {
-            verdict.detections.push_back(identy::vm::VMFlags::Cpu_Hypervisor_signature);
-        }
-    }
-
-    check_smbios(mb.smbios, verdict);
-    check_network_adapters(verdict);
-
-    return verdict;
-}
-} // namespace
-
-template<identy::vm::WeightPolicy Policy>
-identy::vm::HeuristicVerdict identy::vm::DefaultHeuristic<Policy>::operator()(const Motherboard& mb) const
-{
-    auto verdict = check_mb_common(mb);
-    verdict.confidence = detail::calculate_confidence<Policy>(verdict.detections);
-
-    return verdict;
-}
-
-template<identy::vm::WeightPolicy Policy>
-identy::vm::HeuristicVerdict identy::vm::DefaultHeuristicEx<Policy>::operator()(const MotherboardEx& mb) const
-{
-    auto verdict = check_mb_common(mb);
-
-    int product_vm_count {};
-    for(auto& disk : mb.drives) {
-        check_drive(disk, verdict, product_vm_count);
-    }
-
-    auto virtual_buses = std::ranges::count_if(mb.drives, [](const identy::PhysicalDriveInfo& drive) {
-        return drive.bus_type == identy::PhysicalDriveInfo::Virtual;
-    });
-
-    if(!mb.drives.empty() && virtual_buses == mb.drives.size()) {
-        verdict.detections.push_back(identy::vm::VMFlags::Storage_AllDrivesBusesVirtual);
-    }
-
-    if(!mb.drives.empty() && product_vm_count == mb.drives.size()) {
-        verdict.detections.push_back(identy::vm::VMFlags::Storage_AllDrivesVendorProductKnownVM);
-    }
-
-    verdict.confidence = detail::calculate_confidence<Policy>(verdict.detections);
-
-    return verdict;
-}
-
-// Explicit template instantiations for default policy
-template struct identy::vm::DefaultHeuristic<identy::vm::DefaultWeightPolicy>;
-template struct identy::vm::DefaultHeuristicEx<identy::vm::DefaultWeightPolicy>;
