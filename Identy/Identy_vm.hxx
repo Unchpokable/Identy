@@ -30,8 +30,11 @@
 #ifndef UNC_IDENTY_VM_H
 #define UNC_IDENTY_VM_H
 
+#include <algorithm>
 #include <array>
 #include <concepts>
+#include <functional>
+#include <ranges>
 #include <type_traits>
 #include <vector>
 
