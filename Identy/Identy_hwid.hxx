@@ -131,22 +131,22 @@ struct SMBIOS_Header
 struct SMBIOS
 {
     /** @brief Indicates whether SMBIOS 2.0 calling convention was used */
-    bool is_20_calling_used;
+    bool is_20_calling_used { false };
 
     /** @brief SMBIOS specification major version number */
-    byte major_version;
+    byte major_version { 0 };
 
     /** @brief SMBIOS specification minor version number */
-    byte minor_version;
+    byte minor_version { 0 };
 
     /** @brief Desktop Management Interface (DMI) version number */
-    byte dmi_version;
+    byte dmi_version { 0 };
 
     /** @brief System UUID (128-bit universally unique identifier) as defined by SMBIOS Type 1 */
-    byte uuid[SMBIOS_uuid_length];
+    byte uuid[SMBIOS_uuid_length] = {};
 
     /** @brief Complete raw SMBIOS table data copied from firmware, managed by std::vector */
-    std::vector<std::uint8_t> raw_tables_data;
+    std::vector<std::uint8_t> raw_tables_data = {};
 };
 
 /**
@@ -165,10 +165,10 @@ struct SMBIOS
 struct Motherboard
 {
     /** @brief Information about the installed CPU */
-    Cpu cpu;
+    Cpu cpu {};
 
     /** @brief SMBIOS data from system firmware */
-    SMBIOS smbios;
+    SMBIOS smbios {};
 };
 
 /**
